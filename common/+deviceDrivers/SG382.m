@@ -18,27 +18,37 @@
 
 classdef SG382 < deviceDrivers.lib.GPIBorEthernet
     
-    properties        
-        amp
+    properties
+        ampN
+        ampBNC
         freq
     end
     
     methods
-
-         function val = get.amp(obj)
-             val = str2double(obj.query('AMPR?'));
-         end
-         function obj = set.amp(obj, value)
-             assert(isnumeric(value),'amplitude must by numeric')
-             obj.write('AMPR %d', value);
-         end
-         function val = get.freq(obj)
-             val = str2double(obj.query('FREQ?'));
-         end
-         function obj = set.freq(obj, value)
-             assert(isnumeric(value),'amplitude must by numeric')
-             obj.write('FREQ %E', value);
-         end
+        function obj = SG382()
+        end
+        
+        function val = get.ampN(obj)
+            val = str2double(obj.query('AMPR?'));
+        end
+        function obj = set.ampN(obj, value)
+            assert(isnumeric(value),'amplitude must by numeric')
+            obj.write('AMPR %d', value);
+        end
+        function val = get.ampBNC(obj)
+            val = str2double(obj.query('AMPL?'));
+        end
+        function obj = set.ampBNC(obj, value)
+            assert(isnumeric(value),'amplitude must by numeric')
+            obj.write('AMPL %d', value);
+        end
+        function val = get.freq(obj)
+            val = str2double(obj.query('FREQ?'));
+        end
+        function obj = set.freq(obj, value)
+            assert(isnumeric(value),'amplitude must by numeric')
+            obj.write('FREQ %E', value);
+        end
     end
     
 end
