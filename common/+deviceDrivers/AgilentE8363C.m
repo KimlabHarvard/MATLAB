@@ -106,11 +106,13 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
         function Xdata = getX(obj)
              Xstr=[];
              i=1;
+             pause on;
              while isempty(Xstr)
                 Xstr = obj.query('Calc:X?');
                 if i==20
                     break
                 end
+                pause(1)
                 i=i+1;
              end
             %split x data into array
