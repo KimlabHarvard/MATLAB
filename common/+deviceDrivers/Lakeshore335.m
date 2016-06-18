@@ -41,14 +41,16 @@ classdef (Sealed) Lakeshore335 < deviceDrivers.lib.deviceDriverBase & deviceDriv
         end
 		function set.setPoint1(obj, val)
             assert(isnumeric(val),'set point must be numeric')
-			obj.write(sprintf('SETP 1,%d', val));
+			%Artem: I am changing this from %d to %f
+            obj.write(sprintf('SETP 1,%f', val));
         end
         function val = get.setPoint2(obj)
 			val = str2double(obj.query('SETP? 2'));
         end
         function set.setPoint2(obj, val)
             assert(isnumeric(val),'set point must be numeric')
-			obj.write(sprintf('SETP 2,%d', val));
+            %Artem: I am changing this from %d to %f
+			obj.write(sprintf('SETP 2,%f', val));
         end
 
         %Get and receive PID setting
@@ -165,8 +167,7 @@ classdef (Sealed) Lakeshore335 < deviceDrivers.lib.deviceDriverBase & deviceDriv
         function set_curve_header(obj, curve, name, serialNumber, format, limitValue, coefficient)
 			%Set a calibration curve header
 			obj.write(sprintf(strcat('CRVHDR %d,', name, ',',serialNumber, ',%d,%d,%d'), curve, format, limitValue, coefficient));
-			fprintf(strcat('CRVHDR %d,', name, ',',serialNumber, ',%d,%d,%d'), curve, format, limitValue, coefficient);
-        end
+	        end
         
         %this function written by Artem Talanov
         function val= readSensorUnitsInput(obj, channel)
