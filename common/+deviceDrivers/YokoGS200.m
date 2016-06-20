@@ -16,7 +16,7 @@
 % See the License for the specific language governing permissions and
 % limitations under the License.
 
-classdef (Sealed) YokoGS200 < deviceDrivers.lib.deviceDriverBase & deviceDrivers.lib.GPIBorVISA
+classdef (Sealed) YokoGS200 < deviceDrivers.lib.deviceDriverBase & deviceDrivers.lib.GPIBorEthernet
     properties (Access = public)
         output
         range
