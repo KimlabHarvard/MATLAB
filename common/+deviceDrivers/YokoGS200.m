@@ -26,6 +26,7 @@ classdef (Sealed) YokoGS200 < deviceDrivers.lib.deviceDriverBase & deviceDrivers
     
     methods
         function obj = YokoGS200()
+            obj.DEFAULT_PORT = 7655;
         end
         
         % getters
@@ -64,18 +65,24 @@ classdef (Sealed) YokoGS200 < deviceDrivers.lib.deviceDriverBase & deviceDrivers
             
             obj.write([':OUTPUT ' value]);
         end
-        function flag = ramp2V(obj,Vset)
-            CurrentV = str2double(obj.query(':SOURCE:LEVEL?'));
-            DeltaV = Vset-CurrentV;
-            %if the difference is greater than 1mv, ramp slowly
-            if abs(DeltaV)>1
-                for j=1:floor(abs(DeltaV*10))                   
-                    CurrentV=CurrentV+0.1*sign(DeltaV);
-                    obj.write(sprintf(':SOURCE:LEVEL %d', CurrentV));
+        
+        %ramp to voltage V @ a rate in V/s defaults to 0.1
+        function ramp2V(obj,Vset,rate)
+            if ~exist('rate','var')
+                rate = 0.1;
+            end
+            assert(isnumeric(Vset)&&isnumeric(rate),'values must be numeric')
+            time_per_step = 2E-2;
+            Vstart = obj.value;
+            total_time = abs(Vset-Vstart)/rate;
+            steps = abs(floor(total_time/time_per_step))+1;
+            Vs = linspace(Vstart,Vset,steps);
+            for V=Vs(2:end)
+                t=clock;
+                obj.value = round(V,3);
+                while etime(clock,t) < time_per_step
                 end
             end
-            obj.write(sprintf(':SOURCE:LEVEL %d', Vset));
-            flag = true;
         end
         function obj = set.range(obj, range)
             valid_ranges = [1e-3, 10e-3, 100e-3, 200e-3, 1, 10, 30];

@@ -1,4 +1,4 @@
-function y = myFcn(u)
+function y = pause_button_example(u)
 h = createPauseButton;
 pause(0.01); % To create the button.
 
@@ -9,4 +9,4 @@ while y < 100000
     y = y+u;
     pause(1e-5);
 end
-clear(h);
+close(h);
