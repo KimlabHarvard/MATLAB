@@ -41,14 +41,16 @@ classdef (Sealed) Lakeshore335 < deviceDrivers.lib.deviceDriverBase & deviceDriv
         end
 		function set.setPoint1(obj, val)
             assert(isnumeric(val),'set point must be numeric')
-			obj.write(sprintf('SETP 1,%d', val));
+			%Artem: I am changing this from %d to %f
+            obj.write(sprintf('SETP 1,%f', val));
         end
         function val = get.setPoint2(obj)
 			val = str2double(obj.query('SETP? 2'));
         end
         function set.setPoint2(obj, val)
             assert(isnumeric(val),'set point must be numeric')
-			obj.write(sprintf('SETP 2,%d', val));
+            %Artem: I am changing this from %d to %f
+			obj.write(sprintf('SETP 2,%f', val));
         end
 
         %Get and receive PID setting
@@ -146,14 +148,37 @@ classdef (Sealed) Lakeshore335 < deviceDrivers.lib.deviceDriverBase & deviceDriv
 
 		function [val, temp] = get_curve_val(obj, curve, index)
 			%Get a calibration curve tuple for a curve at a specified index
-			strs = strsplit(obj.query(sprintf('CRVPT? %d,%d', curve, index), ','));
+			strs = strsplit(obj.query(sprintf('CRVPT? %d,%d', curve, index)), ',');
 			val = str2double(strs{1});
 			temp = str2double(strs{2});
 		end
 
 		function set_curve_val(obj, curve, index, val, temp)
 			%Set a calibration curve (val, temp) tuple for a curve at a specified index
-			obj.write(sprintf('CRVPT %d,%d,%d,%d', curve, index, val, temp));
+			obj.write(sprintf(strcat('CRVPT %f,%f,%f,%f'), curve, index, val, temp));
+        end
+        
+        %this function written by Artem Talanov
+        %name and serialNumber are strings
+        %for format, 1=mV/K, 2=V/K, 3=Ohm/K, 4=log(Ohm)/K
+        %limitValue specifies the curve temp limit in kelvin
+        %coefficient specifies curve temperature coefficient, 1=negative,
+        %2=positive
+        function set_curve_header(obj, curve, name, serialNumber, format, limitValue, coefficient)
+			%Set a calibration curve header
+			obj.write(sprintf(strcat('CRVHDR %d,', name, ',',serialNumber, ',%d,%d,%d'), curve, format, limitValue, coefficient));
+	        end
+        
+        %this function written by Artem Talanov
+        function val= readSensorUnitsInput(obj, channel)
+            assert(channel == 'A' || channel == 'B', 'Channel must be "A" or "B"');
+			val = str2double(obj.query(sprintf('SRDG? %c', channel)));
+        end
+        
+        %this function written by Artem Talanov
+        function setInputCurveNumber(obj, curve, channel)
+            assert(channel == 'A' || channel == 'B', 'Channel must be "A" or "B"');
+            obj.write(sprintf(strcat('INCRV ', channel,', %d'), curve));
         end
         
         function PID = autoTune(obj,chan,mode,displayProgress)
