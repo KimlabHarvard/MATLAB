@@ -22,5 +22,3 @@ dist/
 .project
 .pydevproject
 *.prefs
-# sequence data files
-/experiments/muWaveDetection/sequences/*.txt
