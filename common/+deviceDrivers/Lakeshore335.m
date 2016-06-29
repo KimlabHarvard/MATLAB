@@ -16,7 +16,7 @@
 % See the License for the specific language governing permissions and
 % limitations under the License.
 
-classdef (Sealed) Lakeshore335 < deviceDrivers.lib.deviceDriverBase & deviceDrivers.lib.GPIBorVISA
+classdef Lakeshore335 < deviceDrivers.lib.deviceDriverBase & deviceDrivers.lib.GPIBorVISA
     properties
 		leds
         PID1
@@ -43,6 +43,7 @@ classdef (Sealed) Lakeshore335 < deviceDrivers.lib.deviceDriverBase & deviceDriv
             assert(isnumeric(val),'set point must be numeric')
 			%Artem: I am changing this from %d to %f
             obj.write(sprintf('SETP 1,%f', val));
+            obj.adjustHeater1ToTemp(obj,val);
         end
         function val = get.setPoint2(obj)
 			val = str2double(obj.query('SETP? 2'));
@@ -51,6 +52,7 @@ classdef (Sealed) Lakeshore335 < deviceDrivers.lib.deviceDriverBase & deviceDriv
             assert(isnumeric(val),'set point must be numeric')
             %Artem: I am changing this from %d to %f
 			obj.write(sprintf('SETP 2,%f', val));
+            obj.adjustHeater2ToTemp(obj,val);
         end
 
         %Get and receive PID setting
@@ -224,6 +226,18 @@ classdef (Sealed) Lakeshore335 < deviceDrivers.lib.deviceDriverBase & deviceDriv
             status = [state,output,error,stage];
         end
             
-	end
+    end
+    
+    methods (Access=protected)
+        function adjustHeater1ToTemp(obj,val)
+            %no implementation in this class
+            %overload in subclasses
+        end
+        
+        function adjustHeater2ToTemp(obj,val)
+            %no implementation in this class
+            %overload in subclasses
+        end
+    end
 
 end
