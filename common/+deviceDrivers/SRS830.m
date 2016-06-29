@@ -238,6 +238,27 @@ classdef (Sealed) SRS830 < deviceDrivers.lib.GPIB
             sens_number = str2double(obj.query('SENS?'));
             obj.write('SENS %E', sens_number-1);
         end
+        
+        %an auto sensitivity function with includes hysteresis
+        function autoSens(obj,lowerBound,upperBound)
+        if ~exist('lowerBound','var')
+            lowerBound = 0.25;
+        end
+        if ~exist('upperBound','var')
+            upperBound = 0.75;
+        end
+        
+        val = obj.R;
+        while (val > obj.sens*upperBound) || val < obj.sens*lowerBound
+            if val > obj.sens*upperBound
+                obj.decreaseSens();
+            elseif val < obj.sens*lowerBound
+                obj.increaseSens()
+            end
+            pause(obj.timeConstant*4)
+            val = obj.R;
+        end
+    end
     end
     
 end

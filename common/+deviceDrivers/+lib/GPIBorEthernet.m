@@ -39,12 +39,18 @@ classdef GPIBorEthernet < hgsetget
         
         function connect(obj, address)
             % determine whether to use GPIB or TCPIP by the form of the
-            % address
+            % address. possible to give port via X.X.X.X:PORT form
             if ~obj.isConnected
                 ip_re = '\d+\.\d+\.\d+\.\d+';
+                ip_port_re = '\d+\.\d+\.\d+\.\d+:\d+';
                 gpib_re = '^\d+$';
 
-                if ischar(address) && ~isempty(regexp(address, ip_re, 'once'))
+                if ischar(address) && ~isempty(regexp(address, ip_port_re, 'once'))
+                    %if a port was included, divide the address into IP and port
+                     ind = strfind(address, ':');
+                    % Create a TCPIP object.
+                    obj.interface = tcpip(address(1:ind-1), str2double(address(ind+1:end)));
+                elseif ischar(address) && ~isempty(regexp(address, ip_re, 'once'))
                     % Create a TCPIP object.
                     obj.interface = tcpip(address, obj.DEFAULT_PORT);
                 elseif ischar(address) && ~isempty(regexp(address, gpib_re, 'once'))
