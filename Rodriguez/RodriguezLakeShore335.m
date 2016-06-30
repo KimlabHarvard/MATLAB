@@ -8,9 +8,9 @@ classdef RodriguezLakeShore335 < Lakeshore335
     properties (Access=private)
         %vector of temps, and calculated P's I's and D's for PID loop
         %for heater 1
-        temps1=  [0  5   10  20  35  60  100 150 210 290 400];
-        P1=   10*[30 30  30  30  30  30  30  30  30  30  30]
-        I1=   10*[30 30  30  30  30  30  30  30  30  30  30];
+        temps1= [0   5   10  20  35  60  100 150 210 290 400];
+        P1=     [225 225 225 225 375 325 225 240 200 175 175]
+        I1=     [145 145 145 145 105 43  22  19  17  16  16];
         D1=   0*[30 30  30  30  30  30  30  30  30  30  30];
         
         
