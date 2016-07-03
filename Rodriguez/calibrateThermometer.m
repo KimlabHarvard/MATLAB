@@ -29,7 +29,10 @@ load C:\Users\Gladys\Desktop\X108541.dat;
 temps=X108541(:,1);
 
 %connect to lakeshore bridge and set new curve header
-ls335 = deviceDrivers.Lakeshore335();
+
+ls335=RodriguezLakeShore335();
+ls335.delete();
+ls335=RodriguezLakeShore335();
 ls335.connect('12')
 ls335.setInputCurveNumber(calibratedCurve, calibratedChannel);
 ls335.set_curve_header(curve, name, serialNumber, fformat, lowestTemp, coefficient);
@@ -41,7 +44,7 @@ ls335.setPoint1=temps(tempIndex);
     
 %wait until temp is reached
 fprintf('waiting to reach temperature %f K...',temps(tempIndex))
-while(ls335.get_temperature(calibratedChannel)<temps(tempIndex))
+while(ls335.measureTempBWithPolynomialInterpolation()<temps(tempIndex))
    pause(15);
 end
 
@@ -53,22 +56,22 @@ pause(waitTime);
 disp('averaging temperature')
 
 %average measurements for some time
-n=0;
-total=0;
-totalTemp=0;
+tempData=zeros(1,avgTime*4);
+sensorData=zeros(1,avgTime*4);
 for j=1:avgTime*4
-    total=total+ls335.readSensorUnitsInput(channel);
-    totalTemp=totalTemp+ls335.get_temperature('B');
-    n=n+1;
+    sensorData(j)=ls335.readSensorUnitsInput(channel);
+    tempData(j)=ls335.measureTempBWithPolynomialInterpolation();
     pause(0.25);
 end
-avgValue=total/n;
-avgTemp=totalTemp/n;
+avgValue=sum(sensorData)/(avgTime*4);
+avgTemp=sum(tempData)/(avgTime*4);
+
+
 
 %add datapoint to curve and save to file
 ls335.set_curve_val(curve, tempIndex, avgValue, temps(tempIndex));
 fid=fopen(filename,'at');
-fprintf(fid,'%f,%f,%f\n',temps(tempIndex), avgTemp, avgValue);
+fprintf(fid,'%f,%f,%f,%f,%f\n',temps(tempIndex), avgTemp, std(tempData)/sqrt(avgTime*4), avgValue, std(sensorData)/sqrt(avgTime*4));
 fclose(fid);
 
 ls335.disconnect();

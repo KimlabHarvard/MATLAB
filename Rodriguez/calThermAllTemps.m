@@ -1,4 +1,4 @@
-for q=25:78
+for q=17:78
     disp(q)
     disp(temps(q))
     calibrateThermometer(q,600,600)
