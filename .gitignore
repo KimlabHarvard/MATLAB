@@ -12,6 +12,7 @@ data/
 data/*
 cfg/
 cfg/*
+ATS-SDK/*
 *.cfg
 build/
 build32/
