@@ -45,6 +45,8 @@ classdef (Sealed) SRS830 < deviceDrivers.lib.GPIB
         sensMap = containers.Map({2E-9,5E-9,1E-8,2E-8,5E-8,1E-7,2E-7,5E-7,1E-6,...
             2E-6,5E-6,1E-5,2E-5,5E-5,1E-4,2E-4,5E-4,1E-3,2E-3,5E-3,1E-2, ...
             2E-2,5E-2,1E-1,2E-1,5E-1,1},num2cell(0:26))
+        %perhaps this might be better
+        %sensMap=containers.Map(num2cell(kron(10.^(-9:-1),[2,5,10]),num2cell(0:26));
     end
     
     methods
