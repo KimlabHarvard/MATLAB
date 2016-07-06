@@ -1,11 +1,74 @@
-classdef ATS850Driver
+classdef ATS850Driver < handle
     %ATS850 Driver for AlazarTech ATS850 Digitizer card
-    %   Detailed explanation goes here
+    %Written by Artem Talanov (avtalanov@gmail.com)
+    
     
     properties (SetAccess = protected)
         systemID;
         boardID;
         boardHandle;
+        channelARange;
+        channelBRange;
+    end
+    
+    properties (Constant)
+        bitsPerSample=8;
+        codeZero=bitshift(1,8-1)-0.5; %127.5
+        codeRange=bitshift(1,8-1)-0.5; %127.5
+    end
+    
+    methods (Access=private)
+        %convert range number to actual range in volts
+        function rangeVolts=convertRange(~, rangeNumber)
+            switch(rangeNumber)
+                case hex2dec('00000001')
+                    rangeVolts=.02;
+                case hex2dec('00000002')
+                    rangeVolts=.04;
+                case hex2dec('00000003')
+                    rangeVolts=.05;
+                case hex2dec('00000004')
+                    rangeVolts=.08;
+                case hex2dec('00000005')
+                    rangeVolts=.1;
+                case hex2dec('00000006')
+                    rangeVolts=.2;
+                case hex2dec('00000007')
+                    rangeVolts=.4;
+                case hex2dec('00000008')
+                    rangeVolts=.5;
+                case hex2dec('00000009')
+                    rangeVolts=.8;
+                case hex2dec('0000000A')
+                    rangeVolts=1;
+                case hex2dec('0000000B')
+                    rangeVolts=2;
+                case hex2dec('0000000C')
+                    rangeVolts=4;
+                case hex2dec('0000000D')
+                    rangeVolts=5;
+                case hex2dec('0000000E')
+                    rangeVolts=8;
+                case hex2dec('0000000F')
+                    rangeVolts=10;
+                case hex2dec('00000010')
+                    rangeVolts=20;
+                case hex2dec('00000011')
+                    rangeVolts=40;
+                case hex2dec('00000012')
+                    rangeVolts=16;
+                case hex2dec('00000020')
+                    rangeVolts=0; %hifi
+                case hex2dec('00000021')
+                    rangeVolts=0; %INPUT_RANGE_PM_1_V_25
+                case hex2dec('00000025')
+                    rangeVolts=0; %INPUT_RANGE_PM_2_V_5   
+                case hex2dec('00000028')
+                    rangeVolts=.125;
+                case hex2dec('00000030')
+                    rangeVolts=.25;
+            end
+        end
     end
     
     methods
@@ -14,7 +77,8 @@ classdef ATS850Driver
             obj.systemID=systemId;
             obj.boardID=boardId;
             obj.boardHandle=AlazarGetBoardBySystemID(systemId,boardId);
-            AlazarDefs
+            alazarLoadLibrary();
+            %AlazarDefs %might not need this
         end
         
         %configure the board for default data-taking
@@ -26,17 +90,20 @@ classdef ATS850Driver
                 return
             end
             
-            retCode=AlazarInputControl(obj.boardHandle, obj.CHANNEL_A, obj.AC_COUPLING, obj.INPUT_RANGE_PM_800_MV, obj.IMPEDANCE_50_OHM);
+            retCode=AlazarInputControl(obj.boardHandle, obj.CHANNEL_A, obj.AC_COUPLING, obj.INPUT_RANGE_PM_50_MV, obj.IMPEDANCE_50_OHM);
             if retCode ~= obj.ApiSuccess
                 fprintf('Error: AlazarInputControl failed for Channel A -- %s\n', errorToText(retCode));
                 return
             end
+            obj.channelARange=obj.convertRange(obj.INPUT_RANGE_PM_50_MV);
             
-            retCode=AlazarInputControl(obj.boardHandle, obj.CHANNEL_B, obj.AC_COUPLING, obj.INPUT_RANGE_PM_800_MV, obj.IMPEDANCE_50_OHM);
+            retCode=AlazarInputControl(obj.boardHandle, obj.CHANNEL_B, obj.AC_COUPLING, obj.INPUT_RANGE_PM_50_MV, obj.IMPEDANCE_50_OHM);
             if retCode ~= obj.ApiSuccess
                 fprintf('Error: AlazarInputControl failed for Channel B -- %s\n', errorToText(retCode));
                 return
             end
+            obj.channelBRange=obj.convertRange(obj.INPUT_RANGE_PM_50_MV);
+
             
             retCode=AlazarSetTriggerOperation(obj.boardHandle, obj.TRIG_ENGINE_OP_J, obj.TRIG_ENGINE_J, obj.TRIG_CHAN_A, obj.TRIGGER_SLOPE_POSITIVE,150, obj.TRIG_ENGINE_K, obj.TRIG_DISABLE, obj.TRIGGER_SLOPE_POSITIVE,128);
             if retCode ~= obj.ApiSuccess
@@ -64,9 +131,9 @@ classdef ATS850Driver
         end
         
         %acquire data from channels A and B
-        function [dataA, dataB] = acquireDataSamplesSingleChannel(obj, numSamples, numRecords)
+        function [dataA, dataB] = acquireDataSamples(obj, numSamples, numRecords)
             % Get the sample and memory size
-            [retCode, ~, maxSamplesPerRecord, bitsPerSample] = calllib('ATSApi', 'AlazarGetChannelInfo', obj.boardHandle, 0, 0);
+            [retCode, ~, maxSamplesPerRecord, bitsPerSample2] = calllib('ATSApi', 'AlazarGetChannelInfo', obj.boardHandle, 0, 0);
             if retCode ~= obj.ApiSuccess
                 fprintf('Error: AlazarGetChannelInfo failed -- %s\n', errorToText(retCode));
                 return;
@@ -77,7 +144,7 @@ classdef ATS850Driver
                 return;
             end
             
-            bytesPerSample = floor((double(bitsPerSample) + 7) / double(8));
+            bytesPerSample = floor((double(bitsPerSample2) + 7) / double(8));
             bytesPerRecord = double(bytesPerSample) * numSamples;
             
             % The buffer must be at least 16 samples larger than the transfer size
@@ -185,6 +252,15 @@ classdef ATS850Driver
             
             clear pbuffer;      
         end
+        
+        %acquire real votlage data from channel
+        function [dataAVolts, dataBVolts] = acquireVoltsDataSamples(obj, numSamples, numRecords)
+            [dataA, dataB] = obj.acquireDataSamples(numSamples, numRecords);
+            dataAVolts=(dataA-obj.codeZero)/obj.codeRange*obj.channelARange;
+            dataBVolts=(dataB-obj.codeZero)/obj.codeRange*obj.channelBRange;
+        end
+        
+       
     end
 
     
