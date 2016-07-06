@@ -8,14 +8,14 @@ classdef RodriguezLakeShore335 < deviceDrivers.Lakeshore335
     properties (Access=private)
         %vector of temps, and calculated P's I's and D's for PID loop
         %for heater 1
-        temps1= [0   5   10  20  35  60  100 150 210 290 400];
-        P1=     [225 225 225 225 375 325 225 240 200 175 175]
-        I1=     [145 145 145 145 105 43  22  19  17  16  16];
-        D1=   0*[30 30  30  30  30  30  30  30  30  30  30];
+        temps1= [0   10  15  20  60  100 150 210 290 400];
+        P1=0.75*[700 450 300 290 340 270 240 200 175 175]
+        I1=     [300 300 300 132 46  22  19  17  16  16];
+        D1=   0*[30  30  30  30  30  30  30  30  30  30];
         
         
         temps2=  [0  5   10  20  35  60  100 150 210 290 400];
-        P2=   10*[30 30  30  30  30  30  30  30  30  30  30]
+        P2=   8.5*[30 30  30  30  30  30  30  30  30  30  30]
         I2=   10*[30 30  30  30  30  30  30  30  30  30  30];
         D2=   0*[30 30  30  30  30  30  30  30  30  30  30];
         
@@ -28,7 +28,7 @@ classdef RodriguezLakeShore335 < deviceDrivers.Lakeshore335
         
         %heater 2
         lowLimit2=0;
-        medLimit2=9;
+        medLimit2=5;
     end
     
     methods 

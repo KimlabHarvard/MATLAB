@@ -71,7 +71,7 @@ avgTemp=sum(tempData)/(avgTime*4);
 %add datapoint to curve and save to file
 ls335.set_curve_val(curve, tempIndex, avgValue, temps(tempIndex));
 fid=fopen(filename,'at');
-fprintf(fid,'%f,%f,%f,%f,%f\n',temps(tempIndex), avgTemp, std(tempData)/sqrt(avgTime*4), avgValue, std(sensorData)/sqrt(avgTime*4));
+fprintf(fid,'%f,%f,%f,%f,%f%f,%f\n',temps(tempIndex), avgTemp, std(tempData), std(tempData)/sqrt(avgTime*4), avgValue, std(sensorData), std(sensorData)/sqrt(avgTime*4));
 fclose(fid);
 
 ls335.disconnect();

@@ -20,10 +20,12 @@ TC.connect('12');
 
 
 % Initialize variables
-TempInterval = input('Time interval between temperature measurements (in second) = ');
-UniqueName = input('Enter uniquie file identifier: ','s');
+%TempInterval = input('Time interval between temperature measurements (in second) = ');
+%UniqueName = input('Enter uniquie file identifier: ','s');
+TempInterval=0.02;
+UniqueName='pidtuning'
 start_dir = 'C:\Crossno\data\';
-start_dir = uigetdir(start_dir);
+%start_dir = uigetdir(start_dir);
 StartTime = clock;
 FileName = strcat('Tlog_', datestr(StartTime, 'yyyymmdd_HHMMSS'),'_',UniqueName,'.mat');
 
@@ -65,7 +67,7 @@ while true
     %grid on; hold on;1
     set(plot1,'XData',data.time/60,'YData',data.T_A);
     set(plot2,'XData',data.time/60,'YData',data.T_B);
-   % plot(,,data.time/60,data.T_B)
+    %plot(,,data.time/60,data.T_B)
     
     T_n = T_n+1;
     pause(TempInterval);

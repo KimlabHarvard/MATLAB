@@ -43,7 +43,7 @@ classdef Lakeshore335 < deviceDrivers.lib.deviceDriverBase & deviceDrivers.lib.G
             assert(isnumeric(val),'set point must be numeric')
 			%Artem: I am changing this from %d to %f
             obj.write(sprintf('SETP 1,%f', val));
-            obj.adjustHeater1ToTemp(obj,val);
+            obj.adjustHeater1ToTemp(val);
         end
         function val = get.setPoint2(obj)
 			val = str2double(obj.query('SETP? 2'));
@@ -52,7 +52,7 @@ classdef Lakeshore335 < deviceDrivers.lib.deviceDriverBase & deviceDrivers.lib.G
             assert(isnumeric(val),'set point must be numeric')
             %Artem: I am changing this from %d to %f
 			obj.write(sprintf('SETP 2,%f', val));
-            obj.adjustHeater2ToTemp(obj,val);
+            obj.adjustHeater2ToTemp(val);
         end
 
         %Get and receive PID setting
@@ -70,7 +70,7 @@ classdef Lakeshore335 < deviceDrivers.lib.deviceDriverBase & deviceDrivers.lib.G
             I=PID(2);
             D=PID(3);
             assert(isnumeric(P)&&isnumeric(I)&&isnumeric(D),'PID values must be numeric')
-			obj.write(sprintf('PID 1,%d,%d,%d',P,I,D));
+			obj.write(sprintf('PID 1,%f,%f,%f',P,I,D));
         end
         function val = get.PID2(obj)
 			PID_str = obj.query('PID? 2');
@@ -86,7 +86,7 @@ classdef Lakeshore335 < deviceDrivers.lib.deviceDriverBase & deviceDrivers.lib.G
             I=PID(2);
             D=PID(3);
             assert(isnumeric(P)&&isnumeric(I)&&isnumeric(D),'PID values must be numeric')
-			obj.write(sprintf('PID 2,%d,%d,%d',P,I,D));
+			obj.write(sprintf('PID 2,%f,%f,%f',P,I,D));
         end
         
         %Get and receive Ramp rates
@@ -96,7 +96,7 @@ classdef Lakeshore335 < deviceDrivers.lib.deviceDriverBase & deviceDrivers.lib.G
         end
 		function set.rampRate1(obj, rate)
             assert(isnumeric(rate),'ramp rate must be numeric')
-			obj.write(sprintf('RAMP 1,1,%d', rate));
+			obj.write(sprintf('RAMP 1,1,%f', rate));
         end
         function val = get.rampRate2(obj)
 			str = obj.query('RAMP? 2');
@@ -104,7 +104,7 @@ classdef Lakeshore335 < deviceDrivers.lib.deviceDriverBase & deviceDrivers.lib.G
         end
 		function set.rampRate2(obj, rate)
             assert(isnumeric(rate),'ramp Rate must be numeric')
-			obj.write(sprintf('RAMP 2,1,%d', rate));
+			obj.write(sprintf('RAMP 2,1,%f', rate));
         end
  
         %Get and receive Range
@@ -114,7 +114,7 @@ classdef Lakeshore335 < deviceDrivers.lib.deviceDriverBase & deviceDrivers.lib.G
 		function set.range1(obj, range)
             assert(range==0||range==1||range==2||range==3, ...
                 'range must be numeric. 0=OFF, 1=LOW, 2=MED, 3=HIGH')
-			obj.write(sprintf('RANGE 1,%d', range));
+			obj.write(sprintf('RANGE 1,%f', range));
         end
         function val = get.range2(obj)
 			val = str2double(obj.query('RANGE? 2'));
@@ -122,7 +122,7 @@ classdef Lakeshore335 < deviceDrivers.lib.deviceDriverBase & deviceDrivers.lib.G
 		function set.range2(obj, range)
             assert(range==0||range==1||range==2||range==3, ...
                 'range must be numeric. 0=OFF, 1=LOW, 2=MED, 3=HIGH')
-			obj.write(sprintf('RANGE 2,%d', range));
+			obj.write(sprintf('RANGE 2,%f', range));
         end
         
         %read channel A and B temperature
@@ -139,7 +139,7 @@ classdef Lakeshore335 < deviceDrivers.lib.deviceDriverBase & deviceDrivers.lib.G
 		end
 
 		function set.leds(obj,val)
-			obj.write(sprintf('LEDS %d', val));
+			obj.write(sprintf('LEDS %f', val));
 		end
 
 		function val = get_temperature(obj, chan)
@@ -150,7 +150,7 @@ classdef Lakeshore335 < deviceDrivers.lib.deviceDriverBase & deviceDrivers.lib.G
 
 		function [val, temp] = get_curve_val(obj, curve, index)
 			%Get a calibration curve tuple for a curve at a specified index
-			strs = strsplit(obj.query(sprintf('CRVPT? %d,%d', curve, index)), ',');
+			strs = strsplit(obj.query(sprintf('CRVPT? %f,%f', curve, index)), ',');
 			val = str2double(strs{1});
 			temp = str2double(strs{2});
 		end
@@ -168,7 +168,7 @@ classdef Lakeshore335 < deviceDrivers.lib.deviceDriverBase & deviceDrivers.lib.G
         %2=positive
         function set_curve_header(obj, curve, name, serialNumber, format, limitValue, coefficient)
 			%Set a calibration curve header
-			obj.write(sprintf(strcat('CRVHDR %d,', name, ',',serialNumber, ',%d,%d,%d'), curve, format, limitValue, coefficient));
+			obj.write(sprintf(strcat('CRVHDR %f,', name, ',',serialNumber, ',%f,%f,%f'), curve, format, limitValue, coefficient));
 	        end
         
         %this function written by Artem Talanov
@@ -180,14 +180,14 @@ classdef Lakeshore335 < deviceDrivers.lib.deviceDriverBase & deviceDrivers.lib.G
         %this function written by Artem Talanov
         function setInputCurveNumber(obj, curve, channel)
             assert(channel == 'A' || channel == 'B', 'Channel must be "A" or "B"');
-            obj.write(sprintf(strcat('INCRV ', channel,', %d'), curve));
+            obj.write(sprintf(strcat('INCRV ', channel,', %f'), curve));
         end
         
         function PID = autoTune(obj,chan,mode,displayProgress)
             assert(chan==1||chan==2,'channel must be set to 1 or 2')
             assert(mode==0||mode==1||mode==2,'mode must be numeric. 0=P, 1=PI, 2=PID')
             assert(displayProgress==0||displayProgress==1,'displayProgress should be 0 or 1')
-            obj.write(sprintf('ATUNE %d,%d',chan,mode))
+            obj.write(sprintf('ATUNE %f,%f',chan,mode))
             pause(1);
             status = obj.autoTuneStatus();
             stage = 0;
