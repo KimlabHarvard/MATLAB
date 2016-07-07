@@ -7,8 +7,10 @@ digitizer.configureDefault();
 fid=fopen('testdata.bin','a+');
 
 maxSamples=262144-4;
-numSamples=256*8; %256
-numAvg=50000;
+numSamples=256*32; %256
+N=numSamples;
+Fs=50000000;
+numAvg=500;
 
 fgh=true;
 while(true)
@@ -59,17 +61,17 @@ while(true)
     plotdata=sum/numAvg;
     
     if(fgh)
-        h=loglog(freq,plotdata);
+        h=semilogy(freq,plotdata);
         fgh=false;
         xlabel('f(Hz)');
         ylabel('Power (W/Hz)');
-        title('Resistor -> amp -> 11 MHz LP Filter -> digitizer');
+        title('200K, Cold Attenuator -> BNC cable -> DC block -> 15 MHZ LPF -> amp -> 1f MHz LP Filter -> digitizer');
     else
         h.YData=plotdata;
     end
     grid on;
-    xlim([1,25000000])
-    ylim([0.0000000000000000001,0.000000000001]);
+    xlim([0,25000000])
+    ylim([0.0000000000000001,0.0000000000001]);
     drawnow;
     
     

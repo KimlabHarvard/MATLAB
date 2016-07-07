@@ -11,10 +11,9 @@ numSamples=maxSamples;
 
 datas=[];
 for(i=1:10)
-
     [dataA, dataB] = digitizer.acquireDataSamples(numSamples, 1);
     datas=[datas dataA];
 end
 
-histogram(datas,75:175);
+histogram(datas,0:256);
 var(datas)/50/25000000

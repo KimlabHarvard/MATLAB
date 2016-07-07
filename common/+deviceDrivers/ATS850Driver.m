@@ -1,6 +1,6 @@
 classdef ATS850Driver < handle
     %ATS850 Driver for AlazarTech ATS850 Digitizer card
-    %Written by Artem Talanov (avtalanov@gmail.com)
+    %Written by Artem Talanov (avtalanov@gmail.com) June 2016
     
     
     properties (SetAccess = protected)
@@ -90,19 +90,19 @@ classdef ATS850Driver < handle
                 return
             end
             
-            retCode=AlazarInputControl(obj.boardHandle, obj.CHANNEL_A, obj.AC_COUPLING, obj.INPUT_RANGE_PM_50_MV, obj.IMPEDANCE_50_OHM);
+            retCode=AlazarInputControl(obj.boardHandle, obj.CHANNEL_A, obj.AC_COUPLING, obj.INPUT_RANGE_PM_20_MV, obj.IMPEDANCE_50_OHM);
             if retCode ~= obj.ApiSuccess
                 fprintf('Error: AlazarInputControl failed for Channel A -- %s\n', errorToText(retCode));
                 return
             end
-            obj.channelARange=obj.convertRange(obj.INPUT_RANGE_PM_50_MV);
+            obj.channelARange=obj.convertRange(obj.INPUT_RANGE_PM_20_MV);
             
-            retCode=AlazarInputControl(obj.boardHandle, obj.CHANNEL_B, obj.AC_COUPLING, obj.INPUT_RANGE_PM_50_MV, obj.IMPEDANCE_50_OHM);
+            retCode=AlazarInputControl(obj.boardHandle, obj.CHANNEL_B, obj.AC_COUPLING, obj.INPUT_RANGE_PM_20_MV, obj.IMPEDANCE_50_OHM);
             if retCode ~= obj.ApiSuccess
                 fprintf('Error: AlazarInputControl failed for Channel B -- %s\n', errorToText(retCode));
                 return
             end
-            obj.channelBRange=obj.convertRange(obj.INPUT_RANGE_PM_50_MV);
+            obj.channelBRange=obj.convertRange(obj.INPUT_RANGE_PM_20_MV);
 
             
             retCode=AlazarSetTriggerOperation(obj.boardHandle, obj.TRIG_ENGINE_OP_J, obj.TRIG_ENGINE_J, obj.TRIG_CHAN_A, obj.TRIGGER_SLOPE_POSITIVE,150, obj.TRIG_ENGINE_K, obj.TRIG_DISABLE, obj.TRIGGER_SLOPE_POSITIVE,128);
