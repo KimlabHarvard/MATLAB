@@ -9,7 +9,7 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function data = leiden_VNA_R_T__B_Vg(B_list, Vg_list,Nmeasurements, VWaitTime1,...
-    VWaitTime2, measurementWaitTime, VNAwaitTime, EmailJess, EmailKC, UniqueName)
+    VWaitTime2, measurementWaitTime, VNAwaitTime, rampRate, EmailJess, EmailKC, UniqueName)
 %%Internal convenience functions
 
     function plot1Dconductance(i)
@@ -28,7 +28,7 @@ function data = leiden_VNA_R_T__B_Vg(B_list, Vg_list,Nmeasurements, VWaitTime1,.
         change_to_figure(991); clf;
         surf(data.freq*1E-6,data.Vg,squeeze(20*log10(abs(data.traces(i,:,:)))));
         xlabel('Frequency (MHz)');ylabel('S11^2');box on;grid on;
-        xlim([10,500]);
+        xlim([10,110]);
         view(2);shading flat; colorbar; box on; colormap(cmap);
     end
 
@@ -90,46 +90,11 @@ function data = leiden_VNA_R_T__B_Vg(B_list, Vg_list,Nmeasurements, VWaitTime1,.
 
 
 %saftey checks (more checks below)
-assert(max(abs(Vg_list)) <= 2.5,'Gate voltage set above 2.5 V');
+assert(max(abs(Vg_list)) <= 32,'Gate voltage set above 32 V');
 assert(max(abs(B_list)) <= 5, 'field set above 5 T');
 pause on;
 
 %% get experiment parameters from user
-
-%Nmeasurements = input('How many measurements per parameter point [10]? ');
-%if isempty(Nmeasurements)
-%    Nmeasurements = 10;
-%end
-%VWaitTime1 = input('Enter initial Vg equilibration time [5]: ');
-%if isempty(VWaitTime1)
-%    VWaitTime1 = 5;
-%end
-%VWaitTime2 = input('Enter Vg equilibration time for each step [1]: ');
-%if isempty(VWaitTime2)
-%    VWaitTime2 = 1;
-%end
-%measurementWaitTime = input('Enter time between measurents [1.2]: ');
-%if isempty(measurementWaitTime)
-%    measurementWaitTime = 1.2;
-%end
-
-%VNAwaitTime=input('Enter VNA wait time [2]: ');
-%if isempty(VNAwaitTime)
-%    VNAwaitTime = 2;
-%end
-assert(isnumeric(Nmeasurements)&&isnumeric(VWaitTime1)&&isnumeric(VWaitTime2)...
-    &&isnumeric(measurementWaitTime)&&Nmeasurements >= 0 ...
-    &&VWaitTime1 >= 0&&VWaitTime2 >= 0 ...
-    , 'Oops! please enter non-negative values only')
-%EmailJess = input('Send Jess an email when done? Y/N [N]: ', 's');
-%if isempty(EmailJess)
-%    EmailJess = 'N';
-%end
-%EmailKC = input('Send KC an email when done? Y/N [N]: ', 's');
-%if isempty(EmailKC)
-%    EmailKC = 'N';
-%end
-%UniqueName = input('Enter uniquie file identifier: ','s');
 
 %set constants
 SD_Rex = 10.8E6; %resistor in series with sample
@@ -144,17 +109,13 @@ start_dir = 'D:\Crossno\data\';
 start_dir = uigetdir(start_dir);
 StartTime = clock;
 FileName = strcat(datestr(StartTime, 'yyyymmdd_HHMMSS'),'_VNA_R_T__Vg_',UniqueName);
-%FilePtr = fopen(fullfile(start_dir, [FileName '.dat']), 'w');
-%HeaderStr=strcat('Time\tVg\tT(K)\tX\tY\tR');
-%fprintf(FilePtr, HeaderStr);
-%fclose(FilePtr);
 
 %% Initialize file structure and equipment
 % Connect to the thermometer via lockin
 T = deviceDrivers.X110375(101.1E6,'7');
 % Connect to the VNA
 VNA = deviceDrivers.AgilentE8363C();
-VNA.connect('140.247.189.158')
+VNA.connect('140.247.189.44')
 %Connect source-drain lockin amplifier
 SD = deviceDrivers.SRS830();
 SD.connect('1')
@@ -173,9 +134,9 @@ MS.target_field = target_field;
 MS.ramp();
 
 %initialize the gate
-VG.range = 10;
+VG.range = 30;
 currentVg = Vg_list(1);
-VG.ramp2V(currentVg,0.1);
+VG.ramp2V(currentVg,rampRate);
 
 %initialize Lockin
 SD.sineAmp = SD_Vex;
@@ -189,18 +150,10 @@ SD_sens = SD.sens;
 VNA.trigger_source = 'manual';
 freq = VNA.getX;
 
-%add freq to dat file as col names
-%FilePtr = fopen(fullfile(start_dir, [FileName '.dat']), 'a');
-%for f=freq
-%    fprintf(FilePtr,'\t%e',f);
-%end
-%    fprintf(FilePtr,'\r\n');
-%fclose(FilePtr);
-
 % Initialize data structure
 blank = zeros(length(B_list),length(Vg_list));
 blank_raw = zeros(length(B_list),length(Vg_list),Nmeasurements);
-blank_traces = single(complex(ones(ceil(length(B_list)/2),length(Vg_list),length(freq)),1));
+blank_traces = single(complex(ones(length(B_list),length(Vg_list),length(freq))));
 
 data.time = blank;
 data.T = blank;
@@ -219,7 +172,6 @@ data.traces = blank_traces;
 data.B = B_list;
 data.Vg = Vg_list;
 data.freq = freq;
-data.B_VNA = B_list([1:ceil(length(B_list)/2)]*2-1);
 
 %record all the unsed settings
 data.settings.SD.sineAmp = SD_Vex;
@@ -246,7 +198,7 @@ for B_n=1:length(B_list)
     target_field = B_list(B_n);
     MS.target_field = target_field;
     currentVg = Vg_list(1);
-    VG.ramp2V(currentVg,0.1);
+    VG.ramp2V(currentVg,rampRate);
     %state 2 is 'HOLDING at the target field/current'
     while MS.state() ~= 2
         pause(5);
@@ -254,7 +206,7 @@ for B_n=1:length(B_list)
     for Vg_n=1:length(Vg_list)
         %set Vg
         currentVg = Vg_list(Vg_n);
-        VG.ramp2V(currentVg,0.1);
+        VG.ramp2V(currentVg,rampRate);
         if Vg_n==1
             pause(VWaitTime1);
         else
@@ -262,19 +214,12 @@ for B_n=1:length(B_list)
         end
         
         measure_data(B_n,Vg_n,mod(B_n,2))
-        %if mod(Vg_n,5)==1
-        %    save_data();
-        %end
         
         plot1Dconductance(B_n);
         if mod(Vg_n,25) == 1
             plot2Dresistance();
-        end
-        
-        if mod(B_n,2) == 1 && mod(Vg_n,25) == 1
-            plotVNA(ceil(B_n/2));
-        end
-        
+            plotVNA(B_n);
+        end    
     end
     save_data();
     toc
@@ -286,7 +231,7 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 pause off
 close(pb)
-VG.ramp2V(0);
+VG.ramp2V(0,rampRate);
 %MS.zero();
 T.disconnect();
 VNA.disconnect();

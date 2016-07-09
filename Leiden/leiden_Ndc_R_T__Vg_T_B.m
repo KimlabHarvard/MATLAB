@@ -8,7 +8,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function data = leiden_Ndc_R_T__Vg_T(Ih_list, Vg_list, Nmeasurements, VWaitTime1,...
+function data = leiden_Ndc_R_T__Vg_T_B(B_list, Ih_list, Vg_list, Nmeasurements, VWaitTime1,...
     VWaitTime2, measurementWaitTime, TwaitTime, Vg_rampRate, SD_Rex, SD_Vex,...
     EmailJess, EmailKC, UniqueName)
 %%Internal convenience functions
@@ -57,7 +57,7 @@ function data = leiden_Ndc_R_T__Vg_T(Ih_list, Vg_list, Nmeasurements, VWaitTime1
             else
                 %if the measurement was good, increment.
                 n = n+1;
-            end   
+            end
         end
         data.time(i,j) = mean(data.raw.time(i,j,:));
         data.T(i,j) = mean(data.raw.T(i,j,:));
@@ -108,14 +108,14 @@ SD.connect('1')
 %connect to gate supply
 VG = deviceDrivers.YokoGS200();
 VG.connect('140.247.189.132')
-%connect to magnet supply
-%MS = deviceDrivers.AMI430();
-%MS.connect('140.247.189.135');
+connect to magnet supply
+MS = deviceDrivers.AMI430();
+MS.connect('140.247.189.135');
 
-%initialize magnet supply
-%MS.ramp_rate = 0.001;
-%MS.target_field = B_field;
-%MS.ramp();
+initialize magnet supply
+MS.ramp_rate = 0.001;
+MS.target_field = B_list(1);
+MS.ramp();
 
 %initialize the gate
 VG.range = 30;
@@ -185,40 +185,49 @@ figure(991);
 %% main loop
 pb = createPauseButton;
 pause(0.01);
-%while MS.state() ~= 2
-%        pause(5);
-%end
+
 tic
-for Ih_n=1:length(Ih_list)
+for B_n = 1:length(B_list)
     %set field
-    currentIh = Ih_list(Ih_n);
-    Heat.value = currentIh;
+    target_field = B_list(B_n);
+    MS.target_field = target_field;
+    %reset gate
     currentVg = Vg_list(1);
     VG.ramp2V(currentVg,Vg_rampRate);
     %state 2 is 'HOLDING at the target field/current'
-    if currentIh ~= 0
-        pause(TwaitTime);
+    while MS.state() ~= 2
+        pause(5);
     end
-    for Vg_n=1:length(Vg_list)
-        %set Vg
-        currentVg = Vg_list(Vg_n);
+    for Ih_n=1:length(Ih_list)
+        %set field
+        currentIh = Ih_list(Ih_n);
+        Heat.value = currentIh;
+        currentVg = Vg_list(1);
         VG.ramp2V(currentVg,Vg_rampRate);
-        if Vg_n==1
-            pause(VWaitTime1);
-        else
-            pause(VWaitTime2);
+        %state 2 is 'HOLDING at the target field/current'
+        if currentIh ~= 0
+            pause(TwaitTime);
         end
-        
-        measure_data(Ih_n,Vg_n)
-        
-        plot1Dconductance(Ih_n);
-        plot1Dnoise(Ih_n);
-        plot2Dnoise()
+        for Vg_n=1:length(Vg_list)
+            %set Vg
+            currentVg = Vg_list(Vg_n);
+            VG.ramp2V(currentVg,Vg_rampRate);
+            if Vg_n==1
+                pause(VWaitTime1);
+            else
+                pause(VWaitTime2);
+            end
+            
+            measure_data(Ih_n,Vg_n)
+            
+            plot1Dconductance(Ih_n);
+            plot1Dnoise(Ih_n);
+            plot2Dnoise()
+        end
+        save_data();
+        toc
     end
-    save_data();
-    toc
 end
-
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%       Clear     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

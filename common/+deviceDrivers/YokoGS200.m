@@ -66,11 +66,8 @@ classdef (Sealed) YokoGS200 < deviceDrivers.lib.deviceDriverBase & deviceDrivers
             obj.write([':OUTPUT ' value]);
         end
         
-        %ramp to voltage V @ a rate in V/s defaults to 0.1
+        %ramp to value V @ a rate in V/s defaults to 0.1
         function ramp2V(obj,Vset,rate)
-            if ~exist('rate','var')
-                rate = 0.1;
-            end
             assert(isnumeric(Vset)&&isnumeric(rate),'values must be numeric')
             time_per_step = 2E-2;
             Vstart = obj.value;
@@ -79,11 +76,12 @@ classdef (Sealed) YokoGS200 < deviceDrivers.lib.deviceDriverBase & deviceDrivers
             Vs = linspace(Vstart,Vset,steps);
             for V=Vs(2:end)
                 t=clock;
-                obj.value = round(V,3);
+                obj.value = V;
                 while etime(clock,t) < time_per_step
                 end
             end
         end
+
         function obj = set.range(obj, range)
             valid_ranges = [1e-3, 10e-3, 100e-3, 200e-3, 1, 10, 30];
             if ~isnumeric(range)

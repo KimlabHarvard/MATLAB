@@ -13,24 +13,45 @@ function data = leiden_Ndc_Nac_R_T__Vg_B(B_list, Vg_list, Tac_list, Vex_list,...
     EmailJess, EmailKC, UniqueName)
 %%Internal convenience functions
 
-    function plot1Dconductance(i)
-        change_to_figure(993); clf;
-        plot(data.Vg, 25813./data.R(i,:),'.','MarkerSize',15);
-        xlabel('Vg (Volts)');ylabel('Conductance (h/e^2)');
-        box on; grid on;
-    end
-    function plot1Dnoise(i)
-        change_to_figure(992); clf;
-        plot(data.Vg, data.VNdc(i,:),'.','MarkerSize',15);
-        xlabel('Vg (Volts)');ylabel('V_{noise}');
-        box on; grid on;
-    end
-    function plot2Dnoise()
+    function plot1Dcond(i)
         change_to_figure(991); clf;
-        surf(data.Vg,data.T,data.VNdc);
-        xlabel('gate voltage (V)');ylabel('Temperature (K)');box on;grid on;
-        title('Noise voltage (V)')
-        view(2);shading flat; colorbar; box on; colormap(cmap);
+        R = mean(data.R,3);
+        plot(data.Vg(1:Vg_n), 25813./R(i,1:Vg_n,:),'.','MarkerSize',15);
+        xlabel('Vg (Volts)');ylabel('Conductance (h/e^2)');
+        title(sprintf('B = %.3f T',B_list(i)));
+        box on; grid on;
+    end
+    function plot1DG(i)
+        change_to_figure(992); clf;
+        G = mean(data.G,3);
+        plot(data.Vg(1:Vg_n), G(i,1:Vg_n,:)*1E9,'.','MarkerSize',15);
+        xlabel('Vg (Volts)');ylabel('G_{th} (nW/K)');
+        title(sprintf('B = %.3f T',B_list(i)));
+        box on; grid on;
+    end
+    function plotTvP(i,j)
+        change_to_figure(993); clf;
+        mask = find(squeeze(data.Q(i,j,:)));
+        plot(squeeze(data.Q(i,j,mask))*1E9, squeeze(data.Tac(i,j,mask)),'.','MarkerSize',15);
+        hold all; plot(0,0,'.','MarkerSize',15);
+        xlabel('Power (nW)');ylabel('\DeltaT (K)');
+        title(sprintf('Vg = %.2f V and B = %.3f T',Vg_list(j),B_list(i)));
+        box on; grid on;
+    end
+    function plot2DR()
+        change_to_figure(994); clf;
+        surf(data.Vg,data.B,mean(data.R,3));
+        xlabel('gate voltage (V)');ylabel('Field (T)');box on;grid on;
+        view(2);shading flat; box on; colormap(cmap);
+        h = colorbar; ylabel(h, 'Resistance (\Omega)');
+    end
+    function plot2DG()
+        change_to_figure(995); clf;
+        G=mean(data.G,3)*1E9;
+        surf(data.Vg,data.B,G);
+        xlabel('gate voltage (V)');ylabel('Field (T)');box on;grid on;
+        view(2);shading flat; box on; colormap(cmap);
+        h = colorbar; ylabel(h, 'G_{th} (nW/K)');
     end
 
 %measures the data
@@ -45,33 +66,53 @@ function data = leiden_Ndc_Nac_R_T__Vg_B(B_list, Vg_list, Tac_list, Vex_list,...
             data.raw.time(i,j,k,n) = etime(clock, StartTime);
             data.raw.T(i,j,k,n) = T.temperature();
             [data.raw.Vsd_X(i,j,k,n), data.raw.Vsd_Y(i,j,k,n)] = SD.snapXY();
-            data.raw.R(i,j,k,n) = ...
-                sqrt(data.raw.Vsd_X(i,j,k,n)^2+data.raw.Vsd_Y(i,j,k,n)^2)*SD_Rex/SD_Vex;
             data.raw.VNdc(i,j,k,n) = Ndc.voltage();
             [data.raw.VNac_X(i,j,k,n), data.raw.VNac_Y(i,j,k,n)] = Nac.snapXY();
             
             %check if we are between 5% and 95% of the range, if not autoSens
-            SD_high = max(data.raw.Vsd_X(i,j,k,n),data.raw.Vsd_Y(i,j,k,n));
-            Nac_high = max(data.raw.VNac_X(i,j,k,n),data.raw.VNac_Y(i,j,k,n));
+            SD_high = max(abs(data.raw.Vsd_X(i,j,k,n)),abs(data.raw.Vsd_Y(i,j,k,n)));
+            Nac_high = max(abs(data.raw.VNac_X(i,j,k,n)),abs(data.raw.VNac_Y(i,j,k,n)));
+            OK = 1;
             if SD_high > SD_sens*0.95 || SD_high < SD_sens*0.05
                 SD.autoSens(0.25,0.75);
                 SD_sens = SD.sens();
-            else
+                OK = 0;
+            end
+            if Nac_high > Nac_sens*0.95 || Nac_high < Nac_sens*0.05
+                Nac.autoSens(0.25,0.75);
+                Nac_sens = Nac.sens();
+                OK = 0;
+            end 
+            if OK == 1
                 %if the measurement was good, increment.
                 n = n+1;
             end
         end
+        
         data.time(i,j,k) = mean(data.raw.time(i,j,k,:));
         data.T(i,j,k) = mean(data.raw.T(i,j,k,:));
         data.Vsd_X(i,j,k) = mean(data.raw.Vsd_X(i,j,k,:));
         data.Vsd_Y(i,j,k) = mean(data.raw.Vsd_Y(i,j,k,:));
-        data.R(i,j,k) = mean(data.raw.R(i,j,k,:));
         data.VNdc(i,j,k) = mean(data.raw.VNdc(i,j,k,:));
+        data.VNac_X(i,j,k) = mean(data.raw.VNac_X(i,j,k,:));
+        data.VNac_Y(i,j,k) = mean(data.raw.VNac_X(i,j,k,:));
+        
         data.std.T(i,j,k) = std(data.raw.T(i,j,k,:));
         data.std.Vsd_X(i,j,k) = std(data.raw.Vsd_X(i,j,k,:));
         data.std.Vsd_Y(i,j,k) = std(data.raw.Vsd_Y(i,j,k,:));
-        data.std.R(i,j,k) = std(data.raw.R(i,j,k,:));
         data.std.VNdc(i,j,k) = std(data.raw.VNdc(i,j,k,:));
+        data.std.VNac_X(i,j,k) = std(data.raw.VNac_X(i,j,k,:));
+        data.std.VNac_Y(i,j,k) = std(data.raw.VNac_X(i,j,k,:));
+        
+        R = sqrt(data.Vsd_X(i,j,k)^2+data.raw.Vsd_Y(i,j,k)^2)*SD_Rex/SD_Vex;
+        g = gain_curve(log10(R));
+        Q = 2*R*(SD_Vex/SD_Rex)^2; %factor of 2 converts between rms and p2p
+        Tac = 2*sqrt(2)*sqrt(data.VNac_X(i,j,k)^2+data.raw.VNac_Y(i,j,k)^2)/g;
+        data.Tac(i,j,k) = Tac;
+        data.R(i,j,k) = R;
+        data.Q(i,j,k) = Q;
+        data.G(i,j,k) = Q/Tac;
+        
     end
 
     function save_data()
@@ -91,14 +132,14 @@ SD_Rex = 458.7E3; %resistor in series with sample
 SD_phase = 0; %Phase to use on LA sine output
 SD_freq = 17.777;
 SD_timeConstant = 0.3; %time constant to use on LA
-Nac_timeConstant = 0.3;
 SD_coupling = 'AC'; %only use DC when measureing below 160mHz
-Naz_coupling = 'AC';
+Nac_timeConstant = 0.3;
+Nac_coupling = 'AC';
 
 start_dir = 'D:\Crossno\data\';
 start_dir = uigetdir(start_dir);
 StartTime = clock;
-FileName = strcat(datestr(StartTime, 'yyyymmdd_HHMMSS'),'_Ndc_R_T__Vg_T',UniqueName);
+FileName = strcat(datestr(StartTime, 'yyyymmdd_HHMMSS'),'_Ndc_Nac_R_T__Vg_B',UniqueName);
 
 % Connect to the thermometer via lockin
 T = deviceDrivers.X110375(101.1E6,'7');
@@ -139,11 +180,11 @@ Ndc.sense_range = 'auto';
 Ndc.source_limit = 10;
 
 %initialize the heater
-Heat.mode = 'current';
-Heat.range = 0.1;
-currentIh = Ih_list(1);
-Heat.value = currentIh;
-Heat.output = 1;
+%Heat.mode = 'current';
+%Heat.range = 0.1;
+%currentIh = Ih_list(1);
+%Heat.value = currentIh;
+%Heat.output = 1;
 
 %initialize SD Lockin
 SD.sineAmp = 0.004;
@@ -160,8 +201,8 @@ Nac_sens = Nac.sens;
 
 
 % Initialize data structure
-blank = zeros(length(B_list),length(Vg_list));
-blank_raw = zeros(length(B_list),length(Vg_list),Nmeasurements);
+blank = zeros(length(B_list),length(Vg_list),length(Tac_list));
+blank_raw = zeros(length(B_list),length(Vg_list),length(Tac_list),Nmeasurements);
 
 data.time = blank;
 data.T = blank;
@@ -171,7 +212,7 @@ data.R = blank;
 data.VNdc = blank;
 data.VNac_X = blank;
 data.VNac_Y = blank;
-data.T_p2p = blank;
+data.Tac = blank;
 data.Q = blank;
 data.G = blank;
 
@@ -184,9 +225,10 @@ data.raw.VNdc = blank_raw;
 data.raw.VNac_X = blank_raw;
 data.raw.VNac_Y = blank_raw;
 
-data.Tac = Tac_list;
+data.Tac_set = Tac_list;
 data.B = B_list;
 data.Vg = Vg_list;
+data.gain_curve = gain_curve;
 
 %record all the unsed settings
 data.settings.SR560.gain = 100;
@@ -199,12 +241,11 @@ data.settings.SD.inputCoupling = SD_coupling;
 data.settings.SD.Rex = SD_Rex;
 data.settings.Nac.timeConstant = Nac_timeConstant;
 data.settings.Nac.inputCoupling = Nac_coupling;
+data.settings.Nac.phase = Nac.sinePhase;
 
 %initialize plots
 cmap = cbrewer('div','RdYlBu',246,'linear');
-figure(993);
-figure(992);
-figure(991);
+figure(991);clf;figure(992);clf;figure(993);clf;figure(994);clf;figure(995);clf;
 %% main loop
 pb = createPauseButton;
 pause(0.01);
@@ -223,28 +264,39 @@ for B_n=1:length(B_list)
     end
     for Vg_n=1:length(Vg_list)
         %set Vg
+        
         currentVg = Vg_list(Vg_n);
         VG.ramp2V(currentVg,0.1);
+        
+        %set excitation current to first value
+        SD_Vex=min(max(0.01,round(100*Vex_list(Vg_n))/100),5);
+        SD.sineAmp=SD_Vex;
         if Vg_n==1
             pause(VWaitTime1);
         else
             pause(VWaitTime2);
         end
         
-        for Tn=1:length(Tac_list)
-            if Vex_list(Vg_n)>Vex_max
-                Vex_list(Vg_n)=Vex_max;
-            end
-            %round excitation current to the nearest 10mV with a 10mV min
-            SD_Vex=max(0.01,round(100*Vex_list(Vg_n))/100);
+        %first measurment G is unknown, so you can set a target T
+        %second measurment uses G from first to estimate Q for target T
+        for Tn=1:length(Tac_list) 
+            %round Vex to nearest 10mV between 10mV and 5 V
+            SD_Vex=min(max(0.01,round(100*Vex_list(Vg_n))/100),5);
             SD.sineAmp=SD_Vex;
-            
             measure_data(B_n,Vg_n,Tn)
+            %use the previous G to estimate what Vex is needed next
+            Tnext = Tac_list(mod(Tn,length(Tac_list))+1);
+            Vex_list(Vg_n) = sqrt(data.G(B_n,Vg_n,Tn)*Tnext/data.R(B_n,Vg_n,Tn))*SD_Rex;
+            plotTvP(B_n,Vg_n);pause(0.01);
         end
         
-        plot1Dconductance(Ih_n);
-        plot1Dnoise(Ih_n);
-        plot2Dnoise()
+        if mod(Vg_n,10)==1
+        plot1Dcond(B_n);
+        plot1DG(B_n);
+        plot2DG();
+        plot2DR();
+        end
+        
     end
     save_data();
     toc
@@ -256,13 +308,14 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 pause off
 close(pb)
-VG.ramp2V(0);
-Heat.value = 0;
+VG.ramp2V(0,0.1);
+%Heat.value = 0;
 %MS.zero();
 T.disconnect();
 Heat.disconnect();
 SD.disconnect();
 Ndc.disconnect();
+Nac.disconnect();
 %% Email data
 if EmailJess || EmailKC == 'Y'
     setpref('Internet','E_mail','Sweet.Lady.Science@gmail.com');
