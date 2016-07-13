@@ -525,18 +525,15 @@ classdef ATS850Driver < handle
             
                         
             %find indices of freq that should be masked
-            indicesA=-ones(1,length(freq));
-            indicesB=indicesA;
+            indices=-ones(1,length(freq));
             countA=0;
             countB=0;
             for(i=1:length(freq))
-                for(j=1:s2A)
+                for(j=1:s2)
                     if(freq(i)>=maskA(1,j) && freq(i)<=maskA(2,j))
                         countA=countA+1;
                         indicesA(countA)=i;  
                     end
-                end
-                for(j=1:s2B)
                     if(freq(i)>=maskB(1,j) && freq(i)<=maskB(2,j))
                         countB=countB+1;
                         indicesB(countB)=i;
