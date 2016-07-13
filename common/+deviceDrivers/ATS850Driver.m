@@ -321,13 +321,11 @@ classdef ATS850Driver < handle
                         %    setdatatype(bufferOut, 'uint16Ptr', 1, samplesPerBuffer);
                         %end
                         
+                        if(channelId==obj.CHANNEL_A &&(channelMask=='A' || channelMask=='A'+'B'))
+                            dataA(record,:)=bufferOut.Value;
+                        end
                         
-                        if(channelMask=='A')
-                            dataA(record,:)=bufferOut.Value;
-                        elseif(channelMask=='B')
-                            dataB(record,:)=bufferOut.Value;
-                        else
-                            dataA(record,:)=bufferOut.Value;
+                        if(channelId==obj.CHANNEL_B &&(channelMask=='B' || channelMask=='A'+'B'))
                             dataB(record,:)=bufferOut.Value;
                         end
                     end
