@@ -11,9 +11,10 @@ classdef ATS850Driver < handle
         numSamples;
         numRecords;
         bytesPerBuffer;
+        samplesPerBuffer;
     end
     
-    properties (Constant)
+    properties (Access=public, Constant)
         bitsPerSample=8;
         codeZero=bitshift(1,8-1)-0.5; %127.5
         codeRange=bitshift(1,8-1)-0.5; %127.5
@@ -23,6 +24,11 @@ classdef ATS850Driver < handle
         SamplingFrequency=50000000;
         maxSamples=2^18-4;
         
+        InputRange2mV=0.002;
+        InputRange4mV=0.004;
+        InputRange5mV=0.005;
+        InputRange8mV=0.008;
+        InputRange10mV=0.01;
         InputRange20mV=0.02;
         InputRange40mV=0.04;
         InputRange50mV=0.05;
@@ -162,13 +168,15 @@ classdef ATS850Driver < handle
                 return
             end
             
-            retCode=AlazarInputControl(obj.boardHandle, obj.CHANNEL_A, obj.AC_COUPLING, chARangeNumber, obj.IMPEDANCE_50_OHM);
+            %retCode=AlazarInputControl(obj.boardHandle, obj.CHANNEL_A, obj.AC_COUPLING, chARangeNumber, obj.IMPEDANCE_50_OHM);
+            retCode=AlazarInputControl(obj.boardHandle, obj.CHANNEL_A, obj.AC_COUPLING, obj.INPUT_RANGE_PM_20_MV, obj.IMPEDANCE_50_OHM);
             if retCode ~= obj.ApiSuccess
                 fprintf('Error: AlazarInputControl failed for Channel A -- %s\n', errorToText(retCode));
                 return
             end
             
-            retCode=AlazarInputControl(obj.boardHandle, obj.CHANNEL_B, obj.AC_COUPLING, chBRangeNumber, obj.IMPEDANCE_50_OHM);
+            %retCode=AlazarInputControl(obj.boardHandle, obj.CHANNEL_B, obj.AC_COUPLING, chBRangeNumber, obj.IMPEDANCE_50_OHM);
+            retCode=AlazarInputControl(obj.boardHandle, obj.CHANNEL_B, obj.AC_COUPLING, obj.INPUT_RANGE_PM_20_MV, obj.IMPEDANCE_50_OHM);
             if retCode ~= obj.ApiSuccess
                 fprintf('Error: AlazarInputControl failed for Channel B -- %s\n', errorToText(retCode));
                 return
@@ -211,12 +219,12 @@ classdef ATS850Driver < handle
             obj.numSamples=numSamples;
             obj.numRecords=numRecords;
             
-            obj.bytesPerRecord = double(obj.bytesPerSample) * numSamples;
+            %obj.bytesPerRecord = double(obj.bytesPerSample) * numSamples;
             
             % The buffer must be at least 16 samples larger than the transfer size
             %samplesPerBuffer = numSamples + 16;
-            samplesPerBuffer = numSamples;
-            obj.bytesPerBuffer = samplesPerBuffer * obj.bytesPerSample;
+            obj.samplesPerBuffer = numSamples;
+            obj.bytesPerBuffer = obj.samplesPerBuffer * obj.bytesPerSample;
             
             % Set the number of samples per record
             retCode = AlazarSetRecordSize(obj.boardHandle, 0, numSamples);
@@ -308,7 +316,7 @@ classdef ATS850Driver < handle
                         % - a sample code of 0xFF represents a positive full scale input signal.
 
                         %if obj.bytesPerSample == 1
-                            setdatatype(bufferOut, 'uint8Ptr', 1, samplesPerBuffer);
+                            setdatatype(bufferOut, 'uint8Ptr', 1, obj.samplesPerBuffer);
                         %else
                         %    setdatatype(bufferOut, 'uint16Ptr', 1, samplesPerBuffer);
                         %end
@@ -350,9 +358,11 @@ classdef ATS850Driver < handle
             if(channelMask=='A')
                 [dataA, ~] = obj.acquireDataSamples(channelMask);
                 dataAVolts=(dataA-obj.codeZero)/obj.codeRange*obj.channelARange;
+                dataBVolts=0;
             elseif(channelMask=='B')
                 [~, dataB] = obj.acquireDataSamples(channelMask);
                 dataBVolts=(dataB-obj.codeZero)/obj.codeRange*obj.channelBRange;
+                dataAVolts=0;
             else
                 [dataA, dataB] = obj.acquireDataSamples(channelMask);
                 dataAVolts=(dataA-obj.codeZero)/obj.codeRange*obj.channelARange;
@@ -375,7 +385,7 @@ classdef ATS850Driver < handle
             obj.setAcquisitionSize(numGroupsPerRecord*numSamples, myNumRecords);
             if(channelMask=='A')
                 sum=zeros(1,numSamples/2+1);
-                [dataA, ~] = obj.acquireVoltSamples();
+                [dataA, ~] = obj.acquireVoltSamples(channelMask);
                 for i=1:myNumRecords
                     for j=0:numGroupsPerRecord-1
                         index=j*numSamples;
