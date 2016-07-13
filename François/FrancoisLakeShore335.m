@@ -1,4 +1,4 @@
-classdef RodriguezLakeShore335 < deviceDrivers.Lakeshore335
+classdef FrancoisLakeShore335 < deviceDrivers.Lakeshore335
     %RODRIGUEZLAKESHORE335 Summary of this class goes here
     %   Made by Artem Talanov June 2016
     %   Control a specific Lakeshore335 with specific PID needs at certain
@@ -33,8 +33,8 @@ classdef RodriguezLakeShore335 < deviceDrivers.Lakeshore335
     
     methods 
         function val=measureTempBWithPolynomialInterpolation(obj)
-            tempInSensorUnits=str2double(obj.query('SRDG? B')); %gives temperature in sensor units
-            val=obj.chebyshevInterpolation(tempInSensorUnits);
+            tempInSensorUnits=str2double(obj.query('SRDG? A')); %gives temperature in sensor units
+            %val=obj.polynomialInterpolationX108541(tempInSensorUnits);
             
             %need to convert this to a temperature by a polynomial
             %interpolation
@@ -69,8 +69,34 @@ classdef RodriguezLakeShore335 < deviceDrivers.Lakeshore335
         end    
     end
     
-    methods(Access=private)
-        function temp = chebyshevInterpolation(obj,tempInSensorUnits)
+    methods%(Access=private)
+        %to be used with the Si diode supplied with the Francois Fridge
+        function temp = polynomialInterpolation(~, v)
+            if (v>1.15) %1.15 to 1.6
+                v=v-1.375;
+                coef=[10.569656301248722, -38.41285376331595, 65.21469409476227, -175.39736208370945, 523.5219240269608, 2097.261811269148, -24212.130952419015, -3013.358781023545, 154398.90478547194];
+                poly=[1 v v^2 v^3 v^4 v^5 v^6 v^7 v^8];
+                temp=dot(poly,coef);
+            elseif (v>1.11) %1.11 to 1.15
+                v=v-1.13;
+                coef=[23.60732492317715, -75.07828864148611, 3058.1105161858313, -185178.94873075854, 5.026299824587362e+06, 2.8230487022378813e+07, -3.940978248034703e+09, 5.1112054279905876e+10];
+                poly=[1 v v^2 v^3 v^4 v^5 v^6 v^7];
+                temp=dot(poly,coef);
+            elseif (v>1.09) %1.09 to 1.11
+                v=v-1.1;
+                coef=[33.431065635773705, 569.8247114729255, 3206.475597498838, 114571.0556211262,  5.425008392815264e+06, 2.941435944619293e+07, -4.812150053573365e+09];
+                poly=[1 v v^2 v^3 v^4 v^5 v^6];
+                temp=dot(poly,coef);
+            else %% .5124 to 1.09
+                v=v-0.8;
+                coef=[192.31611274874008, -465.69616580085, -108.54565443688381, -121.55022281769561, 56.49043831470216, -2333.6550647762947, -12096.478588565218, 11191.788797894207, 76667.06931382559];
+                poly=[1 v v^2 v^3 v^4 v^5 v^6 v^7 v^8];
+                temp=dot(poly,coef);
+            end
+        end
+        
+        %to be used with X108541 Lakeshore Cernox Sensor
+        function temp = polynomialInterpolationX108541(obj,tempInSensorUnits)
             if (tempInSensorUnits>=235.1)
                 zl=2.34626109356;
                 zu=3.05034108905;
