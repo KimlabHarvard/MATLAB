@@ -2,45 +2,24 @@ classdef ATS850Driver < handle
     %ATS850 Driver for AlazarTech ATS850 Digitizer card
     %Written by Artem Talanov (avtalanov@gmail.com) June 2016
     
+    
     properties (SetAccess = protected)
         systemID;
         boardID;
         boardHandle;
         channelARange;
         channelBRange;
-        numSamples;
-        numRecords;
-        bytesPerBuffer;
     end
     
     properties (Constant)
         bitsPerSample=8;
         codeZero=bitshift(1,8-1)-0.5; %127.5
         codeRange=bitshift(1,8-1)-0.5; %127.5
-        maxSamplesPerRecord=2^18-4;
-        bytesPerSample=1; %= floor((double(bitsPerSample) + 7) / double(8));
-        
-        SamplingFrequency=50000000;
-        maxSamples=2^18-4;
-        
-        InputRange20mV=0.02;
-        InputRange40mV=0.04;
-        InputRange50mV=0.05;
-        InputRange80mV=0.08;
-        InputRange100mV=0.1;
-        InputRange200mV=0.2;
-        InputRange400mV=0.4;
-        InputRange500mV=0.5;
-        InputRange800mV=0.8;
-        InputRange1V=1;
-        InputRange2V=2;
-        InputRange4V=4;
-        InputRange5V=5;
     end
     
     methods (Access=private)
         %convert range number to actual range in volts
-        function rangeVolts=convertToRange(~, rangeNumber)
+        function rangeVolts=convertRange(~, rangeNumber)
             switch(rangeNumber)
                 case hex2dec('00000001')
                     rangeVolts=.02;
@@ -90,89 +69,40 @@ classdef ATS850Driver < handle
                     rangeVolts=.25;
             end
         end
-        
-         %convert range number to actual range in volts
-        function rangeNumber=convertToRangeNumber(~, range)
-            switch(range)
-                case .02
-                    rangeNumber=hex2dec('00000001');
-                case .04
-                    rangeNumber=hex2dec('00000002');
-                case .05
-                    rangeNumber=hex2dec('00000003');
-                case .08
-                    rangeNumber=hex2dec('00000004');
-                case .1
-                    rangeNumber=hex2dec('00000005');
-                case .2
-                    rangeNumber=hex2dec('00000006');
-                case .4
-                    rangeNumber=hex2dec('00000007');
-                case .5
-                    rangeNumber=hex2dec('00000008');
-                case .8
-                    rangeNumber=hex2dec('00000009');
-                case 1
-                    rangeNumber=hex2dec('0000000A');
-                case 2
-                    rangeNumber=hex2dec('0000000B');
-                case 4
-                    rangeNumber=hex2dec('0000000C');
-                case 5
-                    rangeNumber=hex2dec('0000000D');
-                otherwise
-                    rangeNumber=-1;
-            end
-        end
     end
     
     methods
         function obj = ATS850Driver(systemId, boardId)
-            alazarLoadLibrary();
             assert(isscalar(systemId)&&isnumeric(systemId)&&isscalar(boardId)&&isnumeric(boardId),'boardID and systemID must be numeric scalars!');
             obj.systemID=systemId;
             obj.boardID=boardId;
             obj.boardHandle=AlazarGetBoardBySystemID(systemId,boardId);
+            alazarLoadLibrary();
+            %AlazarDefs %might not need this
         end
         
         %configure the board for default data-taking
         %see manual/examples for what this does
-        function configureDefault(obj, inputRangeA, inputRangeB)
-
-            %verify the input ranges are valid
-            chARangeNumber=obj.convertToRangeNumber(inputRangeA);
-            if(chARangeNumber==-1)
-                fprintf('Error: invalid Channel A range of %f',inputRangeA);
-                return
-            end
-            chBRangeNumber=obj.convertToRangeNumber(inputRangeB);
-            if(chBRangeNumber==-1)
-                fprintf('Error: invalid Channel B range of %f',inputRangeB);
-                return
-            end
-            
-            %set the input range properties     
-            obj.channelARange=inputRangeA;
-            obj.channelBRange=inputRangeB;
-            
-            %define the clock to be internal and 50 MSPS
+        function configureDefault(obj)
             retCode=AlazarSetCaptureClock(obj.boardHandle, obj.INTERNAL_CLOCK, obj.SAMPLE_RATE_50MSPS, obj.CLOCK_EDGE_RISING, 0);
             if retCode ~= obj.ApiSuccess
             fprintf('Error: AlazarSetCaptureClock failed -- %s\n', errorToText(retCode));
                 return
             end
             
-            retCode=AlazarInputControl(obj.boardHandle, obj.CHANNEL_A, obj.AC_COUPLING, chARangeNumber, obj.IMPEDANCE_50_OHM);
+            retCode=AlazarInputControl(obj.boardHandle, obj.CHANNEL_A, obj.AC_COUPLING, obj.INPUT_RANGE_PM_20_MV, obj.IMPEDANCE_50_OHM);
             if retCode ~= obj.ApiSuccess
                 fprintf('Error: AlazarInputControl failed for Channel A -- %s\n', errorToText(retCode));
                 return
             end
+            obj.channelARange=obj.convertRange(obj.INPUT_RANGE_PM_20_MV);
             
-            retCode=AlazarInputControl(obj.boardHandle, obj.CHANNEL_B, obj.AC_COUPLING, chBRangeNumber, obj.IMPEDANCE_50_OHM);
+            retCode=AlazarInputControl(obj.boardHandle, obj.CHANNEL_B, obj.AC_COUPLING, obj.INPUT_RANGE_PM_20_MV, obj.IMPEDANCE_50_OHM);
             if retCode ~= obj.ApiSuccess
                 fprintf('Error: AlazarInputControl failed for Channel B -- %s\n', errorToText(retCode));
                 return
             end
+            obj.channelBRange=obj.convertRange(obj.INPUT_RANGE_PM_20_MV);
 
             
             retCode=AlazarSetTriggerOperation(obj.boardHandle, obj.TRIG_ENGINE_OP_J, obj.TRIG_ENGINE_J, obj.TRIG_CHAN_A, obj.TRIGGER_SLOPE_POSITIVE,150, obj.TRIG_ENGINE_K, obj.TRIG_DISABLE, obj.TRIGGER_SLOPE_POSITIVE,128);
@@ -200,23 +130,27 @@ classdef ATS850Driver < handle
             end
         end
         
-        %sets up number of samples and record to take
-        %run this just before acquiring the samples
-        function setAcquisitionSize(obj,numSamples, numRecords)  
-            if(numSamples>obj.maxSamplesPerRecord)
+        %acquire data from channels A and B
+        function [dataA, dataB] = acquireDataSamples(obj, numSamples, numRecords)
+            % Get the sample and memory size
+            [retCode, ~, maxSamplesPerRecord, bitsPerSample2] = calllib('ATSApi', 'AlazarGetChannelInfo', obj.boardHandle, 0, 0);
+            if retCode ~= obj.ApiSuccess
+                fprintf('Error: AlazarGetChannelInfo failed -- %s\n', errorToText(retCode));
+                return;
+            end
+            
+            if(numSamples>maxSamplesPerRecord)
                 disp('Attempted to collect too many samples per record.');
                 return;
             end
             
-            obj.numSamples=numSamples;
-            obj.numRecords=numRecords;
-            
-            obj.bytesPerRecord = double(obj.bytesPerSample) * numSamples;
+            bytesPerSample = floor((double(bitsPerSample2) + 7) / double(8));
+            bytesPerRecord = double(bytesPerSample) * numSamples;
             
             % The buffer must be at least 16 samples larger than the transfer size
             %samplesPerBuffer = numSamples + 16;
             samplesPerBuffer = numSamples;
-            obj.bytesPerBuffer = samplesPerBuffer * obj.bytesPerSample;
+            bytesPerBuffer = samplesPerBuffer * bytesPerSample;
             
             % Set the number of samples per record
             retCode = AlazarSetRecordSize(obj.boardHandle, 0, numSamples);
@@ -231,16 +165,6 @@ classdef ATS850Driver < handle
                 fprintf('Error: AlazarSetRecordCount failed -- %s\n', errorToText(retCode));
                 return;
             end
-        end
-        
-        %acquire uint8 data from channels A and B
-        %channelMask should be 'A' 'B' or 'A'+'B'
-        %returns a numRecords x numSamples matrix for dataA and B
-        function [dataA, dataB] = acquireDataSamples(obj, channelMask)
-            if(~(channelMask=='A' || channelMask=='B' || channelMask=='A'+'B'))
-                fprintf('Channel mask is incorrect');
-                return;
-            end
             
             % Arm the board system to begin the acquisition
             retCode = AlazarStartCapture(obj.boardHandle);
@@ -251,39 +175,32 @@ classdef ATS850Driver < handle
             
             %while board is busy collecting data, wait
             while (AlazarBusy(obj.boardHandle))
-                %pause(0.001);
+                pause(0.01);
             end
             
             % Create a buffer to store a record
-            pbuffer = AlazarAllocBuffer(obj.boardHandle, obj.bytesPerBuffer + 16);
+            pbuffer = AlazarAllocBuffer(obj.boardHandle, bytesPerBuffer + 16);
             if pbuffer == 0
-                fprintf('Error: AlazarAllocBufferU16 %u bytes failed\n', obj.bytesPerBuffer);
+                fprintf('Error: AlazarAllocBufferU16 %u bytes failed\n', bytesPerBuffer);
                 return
             end
            
-            %bytesTransferred = 0;
+            bytesTransferred = 0;
             success = true;
             
-            if(channelMask=='A')
-                dataA=zeros(obj.numRecords, obj.numSamples);
-                dataB=0;
-            elseif(channelMask=='B')
-                dataB=zeros(obj.numRecords, obj.numSamples);
-                dataA=0;
-            else
-                dataA=zeros(obj.numRecords, obj.numSamples);
-                dataB=zeros(obj.numRecords, obj.numSamples);
-            end
+            %the num samples might be off by 16 here
+            dataA=zeros(numRecords,numSamples);
+            dataB=zeros(numRecords,numSamples);
             
-            for record = 1 : obj.numRecords
+            for record = 1 : numRecords
                 for channelId = [obj.CHANNEL_A, obj.CHANNEL_B]
                     % Transfer one full record from on-board memory to our buffer
-                    [retCode, ~, bufferOut] = AlazarRead(obj.boardHandle, channelId, pbuffer, obj.bytesPerSample, record, 0, obj.numSamples);
+                    [retCode, ~, bufferOut] = AlazarRead(obj.boardHandle, channelId, pbuffer, bytesPerSample, record, 0, numSamples);
                     if retCode ~= obj.ApiSuccess
                         fprintf('Error: AlazarRead record %u failed -- %s\n', record, errorToText(retCode));
                         success = false;
                     else
-                        %bytesTransferred = bytesTransferred + obj.bytesPerRecord;
+                        bytesTransferred = bytesTransferred + bytesPerRecord;
             
                         % TODO: Process sample data in this buffer.
                         %
@@ -307,19 +224,15 @@ classdef ATS850Driver < handle
                         % - a sample code of 0x80 represents a ~0V signal.
                         % - a sample code of 0xFF represents a positive full scale input signal.
 
-                        %if obj.bytesPerSample == 1
+                        if bytesPerSample == 1
                             setdatatype(bufferOut, 'uint8Ptr', 1, samplesPerBuffer);
-                        %else
-                        %    setdatatype(bufferOut, 'uint16Ptr', 1, samplesPerBuffer);
-                        %end
-                        
-                        
-                        if(channelMask=='A')
-                            dataA(record,:)=bufferOut.Value;
-                        elseif(channelMask=='B')
-                            dataB(record,:)=bufferOut.Value;
                         else
+                            setdatatype(bufferOut, 'uint16Ptr', 1, samplesPerBuffer);
+                        end
+                        
+                        if(channelId==obj.CHANNEL_A)
                             dataA(record,:)=bufferOut.Value;
+                        elseif(channelId==obj.CHANNEL_B)
                             dataB(record,:)=bufferOut.Value;
                         end
                     end
@@ -340,233 +253,15 @@ classdef ATS850Driver < handle
             clear pbuffer;      
         end
         
-        %acquire real voltage data from channel
-        function [dataAVolts, dataBVolts] = acquireVoltSamples(obj, channelMask)
-            if(~(channelMask=='A' || channelMask=='B' || channelMask=='A'+'B'))
-                fprintf('Channel mask is incorrect');
-                return;
-            end
-            
-            if(channelMask=='A')
-                [dataA, ~] = obj.acquireDataSamples(channelMask);
-                dataAVolts=(dataA-obj.codeZero)/obj.codeRange*obj.channelARange;
-            elseif(channelMask=='B')
-                [~, dataB] = obj.acquireDataSamples(channelMask);
-                dataBVolts=(dataB-obj.codeZero)/obj.codeRange*obj.channelBRange;
-            else
-                [dataA, dataB] = obj.acquireDataSamples(channelMask);
-                dataAVolts=(dataA-obj.codeZero)/obj.codeRange*obj.channelARange;
-                dataBVolts=(dataB-obj.codeZero)/obj.codeRange*obj.channelBRange;
-            end         
+        %acquire real votlage data from channel
+        function [dataAVolts, dataBVolts] = acquireVoltsDataSamples(obj, numSamples, numRecords)
+            [dataA, dataB] = obj.acquireDataSamples(numSamples, numRecords);
+            dataAVolts=(dataA-obj.codeZero)/obj.codeRange*obj.channelARange;
+            dataBVolts=(dataB-obj.codeZero)/obj.codeRange*obj.channelBRange;
         end
         
-        %acquire spectral noise power in units of W/Hz, specify number
-        %of samples in the FFT and the number of FFT's to take and average
-        %so far only implemented for chA
-        %do not need to call prepForAcquisition for this one
-        function [freq, dataAPwr, dataBPwr] = acquireAvgSpectralVoltagePower(obj, numSamples, numAvg, resistanceA, resistanceB, channelMask)
-            if(numSamples>obj.maxSamples)
-                fprintf('Error: attempted to acquire too many samples, %f samples',numSamples);
-                return;
-            end
-            count=0;
-            numGroupsPerRecord=floor(obj.maxSamples/numSamples);
-            myNumRecords=floor(numAvg/numGroupsPerRecord)+1;
-            obj.setAcquisitionSize(numGroupsPerRecord*numSamples, myNumRecords);
-            if(channelMask=='A')
-                sum=zeros(1,numSamples/2+1);
-                [dataA, ~] = obj.acquireVoltSamples();
-                for i=1:myNumRecords
-                    for j=0:numGroupsPerRecord-1
-                        index=j*numSamples;
-                        voltages=dataA(i,index+1:index+numSamples);
-                        xdft=fft(voltages);
-                        xdft=xdft(1:numSamples/2+1);
-                        psdx = abs(xdft).^2;
-
-                        sum=sum+psdx;
-                        count=count+1;
-                        if(count==numAvg)
-                            break;
-                        end
-                    end
-                    if(count==numAvg)
-                        break;
-                    end
-                end
-                %not sure about this factor of 2 here
-                sum(2:end-1) = 2*sum(2:end-1);
-
-                %not sures about this factor of 2 here
-                dataAPwr=sum/(2*numAvg^2*resistanceA);
-                dataBPwr=0;
-            elseif(channelMask=='B')
-                sum=zeros(1,numSamples/2+1);
-                [~, dataB] = obj.acquireVoltSamples();
-                for i=1:myNumRecords
-                    for j=0:numGroupsPerRecord-1
-                        index=j*numSamples;
-                        voltages=dataB(i,index+1:index+numSamples);
-                        xdft=fft(voltages);
-                        xdft=xdft(1:numSamples/2+1);
-                        psdx = abs(xdft).^2;
-
-                        sum=sum+psdx;
-                        count=count+1;
-                        if(count==numAvg)
-                            break;
-                        end
-                    end
-                    if(count==numAvg)
-                        break;
-                    end
-                end
-                %not sure about this factor of 2 here
-                sum(2:end-1) = 2*sum(2:end-1);
-
-                %not sures about this factor of 2 here
-                dataBPwr=sum/(2*numAvg^2*resistanceA);
-            else
-                sumB=zeros(1,numSamples/2+1);
-                sumA=sumB;
-                [dataA, dataB] = obj.acquireVoltSamples();
-                for i=1:myNumRecords
-                    for j=0:numGroupsPerRecord-1
-                        index=j*numSamples;
-                        voltagesA=dataA(i,index+1:index+numSamples);
-                        xdftA=fft(voltagesA);
-                        xdftA=xdftA(1:numSamples/2+1);
-                        psdxA = abs(xdftA).^2;
-                        sumA=sumA+psdxA;
-
-                        voltagesB=dataB(i,index+1:index+numSamples);
-                        xdftB=fftB(voltagesB);
-                        xdftB=xdftB(1:numSamples/2+1);
-                        psdxB = abs(xdftB).^2;
-                        sumB=sumB+psdxB;
-                        
-                        count=count+1;
-                        if(count==numAvg)
-                            break;
-                        end
-                    end
-                    if(count==numAvg)
-                        break;
-                    end
-                end
-                %not sure about this factor of 2 here
-                sumA(2:end-1) = 2*sumB(2:end-1);
-                sumB(2:end-1) = 2*sumB(2:end-1);
-
-                %not sures about this factor of 2 here
-                dataAPwr=sumA/(2*numAvg^2*resistanceA);
-                dataBPwr=sumB/(2*numAvg^2*resistanceB);
-            end 
-            
-            freq = 0:obj.SamplingFrequency/numSamples:obj.SamplingFrequency/2;
-        end
-        
-        %calculate the total avg noise power in units of W
-        %channelMask should be 'A' 'B' or 'A'+'B'
-        function [pwrA, pwrB] = totalVoltagePwr(obj, resistanceA, resistanceB, channelMask)
-            if(~(channelMask=='A' || channelMask=='B' || channelMask=='A'+'B'))
-                fprintf('Channel mask is incorrect');
-                return;
-            end
-            if(channelMask=='A')
-                [dataA, ~]=obj.acquireVoltSamples();
-                pwrA=meansqr(dataA)/resistanceA;
-                pwrB=0;
-            elseif(channelMask=='B')
-                [~, dataB]=obj.acquireVoltSamples();
-                pwrA=0;
-                pwrB=meansqr(dataB)/resistanceB; 
-            else
-                [dataA, dataB]=obj.acquireVoltSamples();
-                pwrA=meansqr(dataA)/resistanceA;
-                pwrB=meansqr(dataB)/resistanceB; 
-            end
- 
-        end
-        
-        %returns the total power in units of W by converting to FFT, applying spectral
-        %mask, and integrating
-        %the applied mask is the mask in which the frequencies are removed
-        %mask should be in the form of a 2xN vector
-        %N is the number of bands to remove
-        %first number in pair is lower bound, second is upper bound
-        function [totalPowerA, totalPowerB] = acquireTotalAvgVoltagePowerWithSpectralMask(obj, maskA, maskB, numSamples, numAvg, resistanceA, resistanceB, channelMask)
-            if(~(channelMask=='A' || channelMask=='B' || channelMask=='A'+'B'))
-                fprintf('Channel mask is incorrect');
-                return;
-            end
-            
-            [s1A, s2A]=size(maskA);
-            if(s1A ~= 2)
-                fprintf('Incorrect input for mask A');
-                return;
-            end
-            
-            [s1B, s2B]=size(maskB);
-            if(s1B ~= 2)
-                fprintf('Incorrect input for mask B');
-                return;
-            end
-            
-            if(channelMask=='A')
-                [freq, dataAPwr, ~] = acquireSpectralVoltagePower(obj, numSamples, numAvg, resistanceA, resistanceB, channelMask);
-
-            elseif(channelMask=='B')
-                [freq, ~, dataBPwr] = acquireSpectralVoltagePower(obj, numSamples, numAvg, resistanceA, resistanceB, channelMask);
-
-            else
-                 [freq, dataAPwr, dataBPwr] = acquireSpectralVoltagePower(obj, resistanceA, resistanceB);
-            end
-            
-                        
-            %find indices of freq that should be masked
-            indices=-ones(1,length(freq));
-            countA=0;
-            countB=0;
-            for(i=1:length(freq))
-                for(j=1:s2)
-                    if(freq(i)>=maskA(1,j) && freq(i)<=maskA(2,j))
-                        countA=countA+1;
-                        indicesA(countA)=i;  
-                    end
-                    if(freq(i)>=maskB(1,j) && freq(i)<=maskB(2,j))
-                        countB=countB+1;
-                        indicesB(countB)=i;
-                    end
-                end
-            end
-            
-            %apply mask to dataAPwr
-            
-            if(channelMask=='A')
-                for(i=1:countA)
-                    dataAPwr(indicesA(i))=0;
-                end
-                totalPowerA=sum(dataAPwr)*obj.SamplingFrequency/numSamples;
-                totalPowerB=0;
-            elseif(channelMask=='B')
-                for(i=1:countB-1)
-                    dataBPwr(indicesB(i))=0;
-                end
-                totalPowerB=sum(dataBPwr)*obj.SamplingFrequency/numSamples;
-                totalPowerA=0;
-            else
-                for(i=1:countA-1)
-                    dataAPwr(indicesA(i))=0;
-                end
-                for(i=1:countB-1)
-                    dataBPwr(indicesB(i))=0;
-                end
-                totalPowerA=sum(dataAPwr)*obj.SamplingFrequency/numSamples;
-                totalPowerB=sum(dataBPwr)*obj.SamplingFrequency/numSamples; 
-            end
-        end  %end function acquireTotalAvgVoltagePowerWithSpectralMask
-    end %end class
+       
+    end
 
     
     properties (Hidden=true, Constant)
@@ -1162,3 +857,4 @@ classdef ATS850Driver < handle
     end
     
 end
+
