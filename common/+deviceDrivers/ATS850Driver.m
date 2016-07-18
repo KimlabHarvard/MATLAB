@@ -9,7 +9,6 @@ classdef ATS850Driver < handle
         channelARange;
         channelBRange;
         numSamples;
-        numRecords;
         bytesPerBuffer;
         samplesPerBuffer;
     end
@@ -20,6 +19,7 @@ classdef ATS850Driver < handle
         codeRange=bitshift(1,8-1)-0.5; %127.5
         maxSamplesPerRecord=2^18-4;
         bytesPerSample=1; %= floor((double(bitsPerSample) + 7) / double(8));
+        numRecords=1; %set to one because no need for splitting a long record into shorter records
         
         SamplingFrequency=50000000;
         maxSamples=2^18-4;
@@ -210,14 +210,15 @@ classdef ATS850Driver < handle
         
         %sets up number of samples and record to take
         %run this just before acquiring the samples
-        function setAcquisitionSize(obj,numSamples, numRecords)  
+        %function setAcquisitionSize(obj,numSamples, numRecords)  
+        function setAcquisitionSize(obj,numSamples)  %numRecords is set to 1 always
             if(numSamples>obj.maxSamplesPerRecord)
                 disp('Attempted to collect too many samples per record.');
                 return;
             end
             
             obj.numSamples=numSamples;
-            obj.numRecords=numRecords;
+            %obj.numRecords=numRecords;
             
             %obj.bytesPerRecord = double(obj.bytesPerSample) * numSamples;
             
@@ -234,7 +235,7 @@ classdef ATS850Driver < handle
             end
             
             % Set the number of records in the acquisition
-            retCode = AlazarSetRecordCount(obj.boardHandle, numRecords);
+            retCode = AlazarSetRecordCount(obj.boardHandle, obj.numRecords);
             if retCode ~= obj.ApiSuccess
                 fprintf('Error: AlazarSetRecordCount failed -- %s\n', errorToText(retCode));
                 return;
@@ -272,70 +273,76 @@ classdef ATS850Driver < handle
             %bytesTransferred = 0;
             success = true;
             
+            %if(channelMask=='A')
+            %    dataA=zeros(obj.numRecords, obj.numSamples);
+            %    dataB=0;
+            %elseif(channelMask=='B')
+            %    dataB=zeros(obj.numRecords, obj.numSamples);
+            %    dataA=0;
+            %else %channel mask is 'A' + 'B'
+                dataA=zeros(obj.numRecords, obj.numSamples);
+                dataB=zeros(obj.numRecords, obj.numSamples);
+            %end
+            
+            record=1;
             if(channelMask=='A')
-                dataA=zeros(obj.numRecords, obj.numSamples);
-                dataB=0;
+                channels=obj.CHANNEL_A;
             elseif(channelMask=='B')
-                dataB=zeros(obj.numRecords, obj.numSamples);
-                dataA=0;
+                channels=obj.CHANNEL_B;
             else
-                dataA=zeros(obj.numRecords, obj.numSamples);
-                dataB=zeros(obj.numRecords, obj.numSamples);
+                channels=[obj.CHANNEL_A, obj.CHANNEL_B];
             end
-            
-            for record = 1 : obj.numRecords
-                for channelId = [obj.CHANNEL_A, obj.CHANNEL_B]
-                    % Transfer one full record from on-board memory to our buffer
-                    [retCode, ~, bufferOut] = AlazarRead(obj.boardHandle, channelId, pbuffer, obj.bytesPerSample, record, 0, obj.numSamples);
-                    if retCode ~= obj.ApiSuccess
-                        fprintf('Error: AlazarRead record %u failed -- %s\n', record, errorToText(retCode));
-                        success = false;
-                    else
-                        %bytesTransferred = bytesTransferred + obj.bytesPerRecord;
-            
-                        % TODO: Process sample data in this buffer.
-                        %
-                        % NOTE:
-                        %
-                        % While you are processing this buffer, the board is already
-                        % filling the next available buffer(s).
-                        %
-                        % You MUST finish processing this buffer and post it back to the
-                        % board before the board fills all of its available DMA buffers
-                        % and on-board memory.
-                        %
-                        % Records are arranged in the buffer as follows: R0A, R1A, R2A ... RnA, R0B,
-                        % R1B, R2B ...
-                        % with RXY the record number X of channel Y
-                        %
-                        % Sample code are stored as 8-bit values.
-                        %
-                        % Sample codes are unsigned by default. As a result:
-                        % - a sample code of 0x00 represents a negative full scale input signal.
-                        % - a sample code of 0x80 represents a ~0V signal.
-                        % - a sample code of 0xFF represents a positive full scale input signal.
+            for channelId=channels
+                % Transfer one full record from on-board memory to our buffer
+                [retCode, ~, bufferOut] = AlazarRead(obj.boardHandle, channelId, pbuffer, obj.bytesPerSample, record, 0, obj.numSamples);
+                if retCode ~= obj.ApiSuccess
+                    fprintf('Error: AlazarRead record %u failed -- %s\n', record, errorToText(retCode));
+                    success = false;
+                else
+                    %bytesTransferred = bytesTransferred + obj.bytesPerRecord;
 
-                        %if obj.bytesPerSample == 1
-                            setdatatype(bufferOut, 'uint8Ptr', 1, obj.samplesPerBuffer);
-                        %else
-                        %    setdatatype(bufferOut, 'uint16Ptr', 1, samplesPerBuffer);
-                        %end
-                        
-                        if(channelId==obj.CHANNEL_A &&(channelMask=='A' || channelMask=='A'+'B'))
-                            dataA(record,:)=bufferOut.Value;
-                        end
-                        
-                        if(channelId==obj.CHANNEL_B &&(channelMask=='B' || channelMask=='A'+'B'))
-                            dataB(record,:)=bufferOut.Value;
-                        end
+                    % TODO: Process sample data in this buffer.
+                    %
+                    % NOTE:
+                    %
+                    % While you are processing this buffer, the board is already
+                    % filling the next available buffer(s).
+                    %
+                    % You MUST finish processing this buffer and post it back to the
+                    % board before the board fills all of its available DMA buffers
+                    % and on-board memory.
+                    %
+                    % Records are arranged in the buffer as follows: R0A, R1A, R2A ... RnA, R0B,
+                    % R1B, R2B ...
+                    % with RXY the record number X of channel Y
+                    %
+                    % Sample code are stored as 8-bit values.
+                    %
+                    % Sample codes are unsigned by default. As a result:
+                    % - a sample code of 0x00 represents a negative full scale input signal.
+                    % - a sample code of 0x80 represents a ~0V signal.
+                    % - a sample code of 0xFF represents a positive full scale input signal.
+
+                    %if obj.bytesPerSample == 1
+                        setdatatype(bufferOut, 'uint8Ptr', 1, obj.samplesPerBuffer);
+                    %else
+                    %    setdatatype(bufferOut, 'uint16Ptr', 1, samplesPerBuffer);
+                    %end
+
+                    if(channelId==obj.CHANNEL_A)
+                        dataA(record,:)=bufferOut.Value;
                     end
 
-                    if ~success
-                        break;
+                    if(channelId==obj.CHANNEL_B)
+                        dataB(record,:)=bufferOut.Value;
                     end
+                end
 
-                end % next channel
-            end % next record
+                if ~success
+                    break;
+                end
+
+            end % next channel
             
             % Release the buffer
             retCode = AlazarFreeBuffer(obj.boardHandle, pbuffer);
@@ -368,26 +375,26 @@ classdef ATS850Driver < handle
             end         
         end
         
-        %acquire spectral noise power in units of W/Hz, specify number
+        %acquire spectral noise power in units of V^2/Hz, specify number
         %of samples in the FFT and the number of FFT's to take and average
         %so far only implemented for chA
         %do not need to call prepForAcquisition for this one
-        function [freq, dataAPwr, dataBPwr] = acquireAvgSpectralVoltagePower(obj, numSamples, numAvg, resistanceA, resistanceB, channelMask)
+        function [freq, dataAPwr, dataBPwr] = acquireAvgSpectralVoltagePower(obj, numSamples, numAvg, channelMask)
             if(numSamples>obj.maxSamples)
                 fprintf('Error: attempted to acquire too many samples, %f samples',numSamples);
                 return;
             end
             count=0;
-            numGroupsPerRecord=floor(obj.maxSamples/numSamples);
-            myNumRecords=floor(numAvg/numGroupsPerRecord)+1;
-            obj.setAcquisitionSize(numGroupsPerRecord*numSamples, myNumRecords);
+            numGroupsPerCapture=floor(obj.maxSamples/numSamples);
+            myNumCaptures=floor(numAvg/numGroupsPerCapture)+1;
+            obj.setAcquisitionSize(numGroupsPerCapture*numSamples);
             if(channelMask=='A')
                 sum=zeros(1,numSamples/2+1);
-                [dataA, ~] = obj.acquireVoltSamples(channelMask);
-                for i=1:myNumRecords
-                    for j=0:numGroupsPerRecord-1
+                for i=1:myNumCaptures
+                    [dataA, ~] = obj.acquireVoltSamples(channelMask);
+                    for j=0:numGroupsPerCapture-1
                         index=j*numSamples;
-                        voltages=dataA(i,index+1:index+numSamples);
+                        voltages=dataA(index+1:index+numSamples);
                         xdft=fft(voltages);
                         xdft=xdft(1:numSamples/2+1);
                         psdx = abs(xdft).^2;
@@ -406,15 +413,15 @@ classdef ATS850Driver < handle
                 sum(2:end-1) = 2*sum(2:end-1);
 
                 %not sures about this factor of 2 here
-                dataAPwr=sum/(2*numAvg^2*resistanceA);
+                dataAPwr=sum/(2*numAvg^2);
                 dataBPwr=0;
             elseif(channelMask=='B')
                 sum=zeros(1,numSamples/2+1);
-                [~, dataB] = obj.acquireVoltSamples();
-                for i=1:myNumRecords
-                    for j=0:numGroupsPerRecord-1
+                for i=1:myNumCaptures
+                    [~, dataB] = obj.acquireVoltSamples(channelMask);
+                    for j=0:numGroupsPerCapture-1
                         index=j*numSamples;
-                        voltages=dataB(i,index+1:index+numSamples);
+                        voltages=dataB(index+1:index+numSamples);
                         xdft=fft(voltages);
                         xdft=xdft(1:numSamples/2+1);
                         psdx = abs(xdft).^2;
@@ -433,21 +440,21 @@ classdef ATS850Driver < handle
                 sum(2:end-1) = 2*sum(2:end-1);
 
                 %not sures about this factor of 2 here
-                dataBPwr=sum/(2*numAvg^2*resistanceA);
+                dataBPwr=sum/(2*numAvg^2);
             else
                 sumB=zeros(1,numSamples/2+1);
                 sumA=sumB;
-                [dataA, dataB] = obj.acquireVoltSamples();
-                for i=1:myNumRecords
-                    for j=0:numGroupsPerRecord-1
+                for i=1:myNumCaptures
+                    [dataA, dataB] = obj.acquireVoltSamples(channelMask);
+                    for j=0:numGroupsPerCapture-1
                         index=j*numSamples;
-                        voltagesA=dataA(i,index+1:index+numSamples);
+                        voltagesA=dataA(index+1:index+numSamples);
                         xdftA=fft(voltagesA);
                         xdftA=xdftA(1:numSamples/2+1);
                         psdxA = abs(xdftA).^2;
                         sumA=sumA+psdxA;
 
-                        voltagesB=dataB(i,index+1:index+numSamples);
+                        voltagesB=dataB(index+1:index+numSamples);
                         xdftB=fftB(voltagesB);
                         xdftB=xdftB(1:numSamples/2+1);
                         psdxB = abs(xdftB).^2;
@@ -467,68 +474,68 @@ classdef ATS850Driver < handle
                 sumB(2:end-1) = 2*sumB(2:end-1);
 
                 %not sures about this factor of 2 here
-                dataAPwr=sumA/(2*numAvg^2*resistanceA);
-                dataBPwr=sumB/(2*numAvg^2*resistanceB);
+                dataAPwr=sumA/(2*numAvg^2);
+                dataBPwr=sumB/(2*numAvg^2);
             end 
             
             freq = 0:obj.SamplingFrequency/numSamples:obj.SamplingFrequency/2;
         end
         
-        %calculate the total avg noise power in units of W
+        %calculate the total avg noise power in units of V^2
         %channelMask should be 'A' 'B' or 'A'+'B'
-        function [pwrA, pwrB] = totalVoltagePwr(obj, resistanceA, resistanceB, channelMask)
+        function [pwrA, pwrB] = totalVoltagePwr(obj, channelMask)
             if(~(channelMask=='A' || channelMask=='B' || channelMask=='A'+'B'))
                 fprintf('Channel mask is incorrect');
                 return;
             end
             if(channelMask=='A')
                 [dataA, ~]=obj.acquireVoltSamples();
-                pwrA=meansqr(dataA)/resistanceA;
+                pwrA=meansqr(dataA);
                 pwrB=0;
             elseif(channelMask=='B')
                 [~, dataB]=obj.acquireVoltSamples();
                 pwrA=0;
-                pwrB=meansqr(dataB)/resistanceB; 
+                pwrB=meansqr(dataB); 
             else
                 [dataA, dataB]=obj.acquireVoltSamples();
-                pwrA=meansqr(dataA)/resistanceA;
-                pwrB=meansqr(dataB)/resistanceB; 
+                pwrA=meansqr(dataA);
+                pwrB=meansqr(dataB); 
             end
  
         end
         
-        %returns the total power in units of W by converting to FFT, applying spectral
+        %returns the total power in units of V^2 by converting to FFT, applying spectral
         %mask, and integrating
         %the applied mask is the mask in which the frequencies are removed
-        %mask should be in the form of a 2xN vector
+        %mask should be in the form of a Nx2 vector
         %N is the number of bands to remove
         %first number in pair is lower bound, second is upper bound
-        function [totalPowerA, totalPowerB] = acquireTotalAvgVoltagePowerWithSpectralMask(obj, maskA, maskB, numSamples, numAvg, resistanceA, resistanceB, channelMask)
+        function [totalPowerA, totalPowerB] = acquireTotalAvgVoltagePowerWithSpectralMask(obj, maskA, maskB, numSamples, numAvg, channelMask)
             if(~(channelMask=='A' || channelMask=='B' || channelMask=='A'+'B'))
                 fprintf('Channel mask is incorrect');
                 return;
             end
             
             [s1A, s2A]=size(maskA);
-            if(s1A ~= 2)
+            if(s2A ~= 2)
                 fprintf('Incorrect input for mask A');
                 return;
             end
             
             [s1B, s2B]=size(maskB);
-            if(s1B ~= 2)
+            if(s2B ~= 2)
                 fprintf('Incorrect input for mask B');
                 return;
             end
             
             if(channelMask=='A')
-                [freq, dataAPwr, ~] = acquireSpectralVoltagePower(obj, numSamples, numAvg, resistanceA, resistanceB, channelMask);
+                [freq, dataAPwr, ~] = acquireAvgSpectralVoltagePower(obj, numSamples, numAvg, channelMask);
 
             elseif(channelMask=='B')
-                [freq, ~, dataBPwr] = acquireSpectralVoltagePower(obj, numSamples, numAvg, resistanceA, resistanceB, channelMask);
+                [freq, ~, dataBPwr] = acquireAvgSpectralVoltagePower(obj, numSamples, numAvg, channelMask);
 
             else
-                 [freq, dataAPwr, dataBPwr] = acquireSpectralVoltagePower(obj, resistanceA, resistanceB);
+                 [freq, dataAPwr, dataBPwr] = acquireSpectralVoltagePower(obj);
             end
             
                         
@@ -538,14 +545,14 @@ classdef ATS850Driver < handle
             countA=0;
             countB=0;
             for(i=1:length(freq))
-                for(j=1:s2A)
-                    if(freq(i)>=maskA(1,j) && freq(i)<=maskA(2,j))
+                for(j=1:s1A)
+                    if(freq(i)>=maskA(j,1) && freq(i)<=maskA(j,2))
                         countA=countA+1;
                         indicesA(countA)=i;  
                     end
                 end
-                for(j=1:s2B)
-                    if(freq(i)>=maskB(1,j) && freq(i)<=maskB(2,j))
+                for(j=1:s1B)
+                    if(freq(i)>=maskB(j,1) && freq(i)<=maskB(j,2))
                         countB=countB+1;
                         indicesB(countB)=i;
                     end
