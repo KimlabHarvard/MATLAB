@@ -32,9 +32,9 @@ classdef FrancoisLakeShore335 < deviceDrivers.Lakeshore335
     end
     
     methods 
-        function val=measureTempBWithPolynomialInterpolation(obj)
+        function val=measureTempAWithPolynomialInterpolation(obj)
             tempInSensorUnits=str2double(obj.query('SRDG? A')); %gives temperature in sensor units
-            %val=obj.polynomialInterpolationX108541(tempInSensorUnits);
+            val=obj.polynomialInterpolation(tempInSensorUnits);
             
             %need to convert this to a temperature by a polynomial
             %interpolation
