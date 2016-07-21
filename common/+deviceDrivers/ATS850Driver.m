@@ -1,6 +1,30 @@
 classdef ATS850Driver < handle
     %ATS850 Driver for AlazarTech ATS850 Digitizer card
     %Written by Artem Talanov (avtalanov@gmail.com) June 2016
+    %
+    %
+    %To use
+    % 1)initialize with constructor, ATS850Drive(1,1)
+    %   the 1 and 1 are the system  ID and board ID
+    %   running the constructor auto-initializes to defaults
+    %   the defaults are the following:
+    %   50 megasamples/second (this driver does not allow changing this)
+    %   
+    %   trigger: channel A, rising or falling through 0V
+    %   trigger delay: 0 cycles
+    %   trigger timeout: 1 cycle
+    %   channel configuation: AC, 1V input range for both channels
+    %
+    % 2)set needed parameters by running the following methods
+    %        -setTriggerOperation
+    %        -setTriggerDelay
+    %        -setTriggerTimeout
+    %        -configureChannel, for both A and B
+    %
+    % 3)collect data. for some data collection you have to set the
+    %   acquitiosn size before calling the function for data collection
+    
+   
     
     properties (SetAccess = protected)
         systemID;
@@ -11,6 +35,16 @@ classdef ATS850Driver < handle
         numSamples;
         bytesPerBuffer;
         samplesPerBuffer;
+        
+        pBuffer;
+        
+        
+        %used for acquiring spectral voltage power
+        numSamplesForAvgSpectralPower;
+        numAvgForAvgSpectralPower;
+        myNumCaptures;
+        numGroupsPerCapture;
+
     end
     
     properties (Access=public, Constant)
@@ -133,34 +167,20 @@ classdef ATS850Driver < handle
     end
     
     methods
+        
+        
         function obj = ATS850Driver(systemId, boardId)
             alazarLoadLibrary();
             assert(isscalar(systemId)&&isnumeric(systemId)&&isscalar(boardId)&&isnumeric(boardId),'boardID and systemID must be numeric scalars!');
             obj.systemID=systemId;
             obj.boardID=boardId;
             obj.boardHandle=AlazarGetBoardBySystemID(systemId,boardId);
+            obj.configureDefault();
         end
         
         %configure the board for default data-taking
         %see manual/examples for what this does
-        function configureDefault(obj, inputRangeA, inputRangeB)
-
-            %verify the input ranges are valid
-            chARangeNumber=obj.convertToRangeNumber(inputRangeA);
-            if(chARangeNumber==-1)
-                fprintf('Error: invalid Channel A range of %f',inputRangeA);
-                return
-            end
-            chBRangeNumber=obj.convertToRangeNumber(inputRangeB);
-            if(chBRangeNumber==-1)
-                fprintf('Error: invalid Channel B range of %f',inputRangeB);
-                return
-            end
-            
-            %set the input range properties     
-            obj.channelARange=inputRangeA;
-            obj.channelBRange=inputRangeB;
-            
+        function configureDefault(obj)
             %define the clock to be internal and 50 MSPS
             retCode=AlazarSetCaptureClock(obj.boardHandle, obj.INTERNAL_CLOCK, obj.SAMPLE_RATE_50MSPS, obj.CLOCK_EDGE_RISING, 0);
             if retCode ~= obj.ApiSuccess
@@ -168,43 +188,197 @@ classdef ATS850Driver < handle
                 return
             end
             
-            %retCode=AlazarInputControl(obj.boardHandle, obj.CHANNEL_A, obj.AC_COUPLING, chARangeNumber, obj.IMPEDANCE_50_OHM);
-            retCode=AlazarInputControl(obj.boardHandle, obj.CHANNEL_A, obj.AC_COUPLING, obj.INPUT_RANGE_PM_20_MV, obj.IMPEDANCE_50_OHM);
-            if retCode ~= obj.ApiSuccess
-                fprintf('Error: AlazarInputControl failed for Channel A -- %s\n', errorToText(retCode));
-                return
-            end
-            
-            %retCode=AlazarInputControl(obj.boardHandle, obj.CHANNEL_B, obj.AC_COUPLING, chBRangeNumber, obj.IMPEDANCE_50_OHM);
-            retCode=AlazarInputControl(obj.boardHandle, obj.CHANNEL_B, obj.AC_COUPLING, obj.INPUT_RANGE_PM_20_MV, obj.IMPEDANCE_50_OHM);
-            if retCode ~= obj.ApiSuccess
-                fprintf('Error: AlazarInputControl failed for Channel B -- %s\n', errorToText(retCode));
-                return
-            end
-
-            
-            retCode=AlazarSetTriggerOperation(obj.boardHandle, obj.TRIG_ENGINE_OP_J, obj.TRIG_ENGINE_J, obj.TRIG_CHAN_A, obj.TRIGGER_SLOPE_POSITIVE,150, obj.TRIG_ENGINE_K, obj.TRIG_DISABLE, obj.TRIGGER_SLOPE_POSITIVE,128);
-            if retCode ~= obj.ApiSuccess
-                fprintf('Error: AlazarSetTriggerOperation failed -- %s\n', errorToText(retCode));
-                return
-            end
-            
-            retCode=AlazarSetTriggerDelay(obj.boardHandle, 0);
-            if retCode ~= obj.ApiSuccess
-                fprintf('Error: AlazarSetTriggerDelay failed -- %s\n', errorToText(retCode));
-                return;
-            end
-            
-            retCode=AlazarSetTriggerTimeOut(obj.boardHandle, 1); %trigger timeout is one clock cycle, might need to change later
-            if retCode ~= obj.ApiSuccess
-                fprintf('Error: AlazarSetTriggerTimeOut failed -- %s\n', errorToText(retCode));
-                return;
-            end
+            obj.setTriggerOperation('J_or_K','A','positive',0,'A','negative',0);
+            obj.setTriggerDelay(0);
+            obj.setTriggerTimeout(1);
+            obj.configureChannel('A', 'AC', 1, 50);
+            obj.configureChannel('B', 'AC', 1, 1000000);
             
             retCode=AlazarConfigureAuxIO(obj.boardHandle, obj.AUX_OUT_TRIGGER, 0); %set default aux IO to trigger as internal clock
             if retCode ~= obj.ApiSuccess
                 fprintf('Error: AlazarConfigureAuxIO failed -- %s\n', errorToText(retCode));
                 return;
+            end
+        end
+        
+        %operation: 'J' 'K' 'J_or_K' 'J_and_K' 'J_xor_K' 'J_and_not_K' 'not_J_and_K'
+        %jSource, source of trigger engine J: 'disable' 'A' 'B' 'external'
+        %jSlope, 'positive' or 'negative'
+        %jLevel, integer from 0 to 255 indicating level of trigger, 127.5 = 0 V
+        %kSource, source of trigger engine J: 'disable' 'A' 'B' 'external_TTL'
+        %kSlope, 'positive' or 'negative'
+        %kLevel, integer from 0 to 255 indicating level of trigger, 127.5 = 0 V
+        function setTriggerOperation(obj,operation,jSource,jSlope,jLevel,kSource,kSlope,kLevel)
+            switch(operation)
+                case 'J' 
+                    myOp=obj.TRIG_ENGINE_OP_J;
+                case 'K' 
+                    myOp=obj.TRIG_ENGINE_OP_K;
+                case 'J_or_K' 
+                    myOp=obj.TRIG_ENGINE_OP_J_OR_K;
+                case 'J_and_K' 
+                    myOp=obj.TRIG_ENGINE_OP_J_AND_K;
+                case 'J_xor_K' 
+                    myOp=obj.TRIG_ENGINE_OP_J_XOR_K;
+                case 'J_and_not_K' 
+                    myOp=obj.TRIG_ENGINE_OP_J_AND_NOT_K;
+                case 'not_J_and_K' 
+                    myOp=obj.TRIG_ENGINE_OP_NOT_J_AND_K;
+                otherwise
+                    fprintf(strcat('Error: Incorrect Trigger Operation: ',num2str(operation)));
+                    return
+            end
+            
+            switch(jSource)
+                case 'disable' 
+                    myJSource=obj.TRIG_DISABLE;
+                case 'A' 
+                    myJSource=obj.TRIG_CHAN_A;
+                case 'B' 
+                    myJSource=obj.TRIG_CHAN_B;
+                case 'external_1V' 
+                    myJSource=obj.TRIG_EXTERNAL;                 
+                case 'external_5V'
+                    myJSource=obj.TRIG_EXTERNAL;
+                otherwise
+                    fprintf(strcat('Error: Incorrect Trigger J Source: ',num2str(jSource)));
+                    return
+            end
+            
+            switch(jSlope)
+                case 'positive' 
+                    myJSlope=obj.TRIGGER_SLOPE_POSITIVE;
+                case 'negative' 
+                    myJSlope=obj.TRIGGER_SLOPE_NEGATIVE;
+                otherwise
+                    fprintf(strcat('Error: Incorrect Trigger J Slope: ',num2str(jSlope)));
+                    return
+            end
+            
+            if(jLevel>255 || jLevel<0)
+                fprintf(strcat('Error: Incorrect Trigger J Level: ',num2str(jLevel)));
+                    return
+            end
+            
+            switch(kSource)
+                case 'disable' 
+                    myKSource=obj.TRIG_DISABLE;
+                case 'A' 
+                    myKSource=obj.TRIG_CHAN_A;
+                case 'B' 
+                    myKSource=obj.TRIG_CHAN_B;
+                case 'external_1V' 
+                    myKSource=obj.TRIG_EXTERNAL;
+                case 'external_5V'
+                    myKSource=obj.TRIG_EXTERNAL;
+                otherwise
+                    fprintf(strcat('Error: Incorrect Trigger K Source: ',num2str(jSource)));
+                    return
+            end
+            
+            switch(kSlope)
+                case 'positive' 
+                    myKSlope=obj.TRIGGER_SLOPE_POSITIVE;
+                case 'negative'
+                    myKSlope=obj.TRIGGER_SLOPE_NEGATIVE;
+                otherwise
+                    fprintf(strcat('Error: Incorrect Trigger J Slope: ',num2str(kSlope)));
+                    return
+            end
+            
+            if(kLevel>255 || kLevel<0)
+                fprintf(strcat('Error: Incorrect Trigger K Level: ',num2str(kLevel)));
+                    return
+            end
+            
+            retCode=AlazarSetTriggerOperation(obj.boardHandle, myOp, obj.TRIG_ENGINE_J, myJSource, myJSlope ,jLevel, obj.TRIG_ENGINE_K, myKSource, myKSlope ,kLevel);
+            if retCode ~= obj.ApiSuccess
+                fprintf('Error: AlazarSetTriggerOperation failed -- %s\n', errorToText(retCode));
+                return
+            end
+            
+            if(strcmp(jSource,'external_1V'))
+                retCode=AlazarSetExternalTrigger(obj.boardHandle, obj.DC_COUPLING, obj.ETR_1V);
+                if retCode ~= obj.ApiSuccess
+                    fprintf('Error: AlazarSetExternalTrigger failed -- %s\n', errorToText(retCode));
+                    return
+                end
+            end
+            if(strcmp(jSource,'external_5V'))
+                retCode=AlazarSetExternalTrigger(obj.boardHandle, obj.DC_COUPLING, obj.ETR_5V);
+                if retCode ~= obj.ApiSuccess
+                    fprintf('Error: AlazarSetExternalTrigger failed -- %s\n', errorToText(retCode));
+                    return
+                end
+            end
+        end
+        
+        %set the trigger delay in number of sample clocks
+        function setTriggerDelay(obj, delay)
+            retCode=AlazarSetTriggerDelay(obj.boardHandle, delay);
+            if retCode ~= obj.ApiSuccess
+                fprintf('Error: AlazarSetTriggerDelay failed -- %s\n', errorToText(retCode));
+                return;
+            end
+        end
+        
+        %set the trigger timeout in number of sample clocks
+        function setTriggerTimeout(obj, timeout)
+            retCode=AlazarSetTriggerTimeOut(obj.boardHandle, timeout); %trigger timeout is one clock cycle, might need to change later
+            if retCode ~= obj.ApiSuccess
+                fprintf('Error: AlazarSetTriggerTimeOut failed -- %s\n', errorToText(retCode));
+                return;
+            end
+        end
+        
+        %channel: 'A' or 'B'
+        %coupling: 'AC' or 'DC'
+        %range: in volts
+        %impedance: 50 or 1,000,000
+        function configureChannel(obj, channel, coupling, range, impedance)
+            myRange=obj.convertToRangeNumber(range);
+            if(myRange==-1)
+                fprintf('Error: invalid Channel range of %f',inputRangeA);
+                return
+            end
+            
+            switch(impedance)
+                case 50
+                    myImpedance=obj.IMPEDANCE_50_OHM;
+                case 1000000
+                    myImpedance=obj.IMPEDANCE_1M_OHM;
+                otherwise
+                    fprintf(strcat('Error: Incorrect impedance: ',num2str(impedance)));
+                    return
+            end
+            
+            switch(channel)
+                case 'A'
+                    myChannel=obj.CHANNEL_A;
+                    obj.channelARange=range;
+                case 'B'
+                    myChannel=obj.CHANNEL_B;
+                    obj.channelBRange=range;
+                otherwise
+                    fprintf(strcat('Error: Incorrect Channel: ',num2str(channel)));
+                    return
+            end
+            
+            switch(coupling)
+                case 'DC' 
+                    myCoupling=obj.DC_COUPLING;
+                case 'AC' 
+                    myCoupling=obj.AC_COUPLING;
+                otherwise
+                    fprintf(strcat('Error: Incorrect Ch Coupling: ',num2str(coupling)));
+                    return
+            end
+            
+
+            retCode=AlazarInputControl(obj.boardHandle, myChannel, myCoupling, myRange, myImpedance);
+            if retCode ~= obj.ApiSuccess
+                fprintf('Error: AlazarInputControl failed for Channel A -- %s\n', errorToText(retCode));
+                return
             end
         end
         
@@ -240,6 +414,12 @@ classdef ATS850Driver < handle
                 fprintf('Error: AlazarSetRecordCount failed -- %s\n', errorToText(retCode));
                 return;
             end
+            
+            obj.pBuffer = AlazarAllocBuffer(obj.boardHandle, obj.bytesPerBuffer + 16);
+            if obj.pBuffer == 0
+                obj.fprintf('Error: AlazarAllocBufferU16 %u bytes failed\n', obj.bytesPerBuffer);
+                return
+            end
         end
         
         %acquire uint8 data from channels A and B
@@ -259,16 +439,16 @@ classdef ATS850Driver < handle
             end
             
             %while board is busy collecting data, wait
-            while (AlazarBusy(obj.boardHandle))
+            while (AlazarBusy(obj.boardHandle))%5.2 msec
                 %pause(0.001);
             end
-            
             % Create a buffer to store a record
-            pbuffer = AlazarAllocBuffer(obj.boardHandle, obj.bytesPerBuffer + 16);
-            if pbuffer == 0
-                fprintf('Error: AlazarAllocBufferU16 %u bytes failed\n', obj.bytesPerBuffer);
-                return
-            end
+            %moved to setAcquisitionSize
+%             obj.pBuffer = AlazarAllocBuffer(obj.boardHandle, obj.bytesPerBuffer + 16);
+%             if obj.pBuffer == 0
+%                 fprintf('Error: AlazarAllocBufferU16 %u bytes failed\n', obj.bytesPerBuffer);
+%                 return
+%             end
            
             %bytesTransferred = 0;
             success = true;
@@ -280,21 +460,21 @@ classdef ATS850Driver < handle
             %    dataB=zeros(obj.numRecords, obj.numSamples);
             %    dataA=0;
             %else %channel mask is 'A' + 'B'
-                dataA=zeros(obj.numRecords, obj.numSamples);
-                dataB=zeros(obj.numRecords, obj.numSamples);
             %end
             
             record=1;
             if(channelMask=='A')
                 channels=obj.CHANNEL_A;
+                dataB=0;
             elseif(channelMask=='B')
                 channels=obj.CHANNEL_B;
+                dataA=0;
             else
                 channels=[obj.CHANNEL_A, obj.CHANNEL_B];
             end
             for channelId=channels
                 % Transfer one full record from on-board memory to our buffer
-                [retCode, ~, bufferOut] = AlazarRead(obj.boardHandle, channelId, pbuffer, obj.bytesPerSample, record, 0, obj.numSamples);
+                [retCode, ~, bufferOut] = AlazarRead(obj.boardHandle, channelId, obj.pBuffer, obj.bytesPerSample, record, 0, obj.numSamples); %7.3 ms
                 if retCode ~= obj.ApiSuccess
                     fprintf('Error: AlazarRead record %u failed -- %s\n', record, errorToText(retCode));
                     success = false;
@@ -330,27 +510,31 @@ classdef ATS850Driver < handle
                     %end
 
                     if(channelId==obj.CHANNEL_A)
-                        dataA(record,:)=bufferOut.Value;
+                        dataA=bufferOut.Value;
                     end
 
                     if(channelId==obj.CHANNEL_B)
-                        dataB(record,:)=bufferOut.Value;
+                        dataB=bufferOut.Value;
                     end
+                    
                 end
 
                 if ~success
                     break;
                 end
 
-            end % next channel
-            
-            % Release the buffer
-            retCode = AlazarFreeBuffer(obj.boardHandle, pbuffer);
-            if retCode ~= obj.ApiSuccess
-                fprintf('Error: AlazarFreeBuffer failed -- %s\n', errorToText(retCode));
             end
             
-            clear pbuffer;      
+            
+            
+%             % Release the buffer
+% %            Commented out because maybe we do not need to free it
+%             retCode = AlazarFreeBuffer(obj.boardHandle, obj.pBuffer);
+%             if retCode ~= obj.ApiSuccess
+%                 fprintf('Error: AlazarFreeBuffer failed -- %s\n', errorToText(retCode));
+%             end
+%             
+%             clear obj.pBuffer;      
         end
         
         %acquire real voltage data from channel
@@ -362,50 +546,62 @@ classdef ATS850Driver < handle
             
             if(channelMask=='A')
                 [dataA, ~] = obj.acquireDataSamples(channelMask);
-                dataAVolts=(dataA-obj.codeZero)/obj.codeRange*obj.channelARange;
+                dataAVolts=(dataA-obj.codeZero)/obj.codeRange*obj.channelARange; %cast dataA to double
                 dataBVolts=0;
             elseif(channelMask=='B')
                 [~, dataB] = obj.acquireDataSamples(channelMask);
-                dataBVolts=(dataB-obj.codeZero)/obj.codeRange*obj.channelBRange;
+                dataBVolts=(double(dataB)-obj.codeZero)/obj.codeRange*obj.channelBRange; %cast dataA to double
                 dataAVolts=0;
-            else
+            else %26 msec
                 [dataA, dataB] = obj.acquireDataSamples(channelMask);
-                dataAVolts=(dataA-obj.codeZero)/obj.codeRange*obj.channelARange;
-                dataBVolts=(dataB-obj.codeZero)/obj.codeRange*obj.channelBRange;
-            end         
+                dataAVolts=(double(dataA)-obj.codeZero)/obj.codeRange*obj.channelARange;
+                dataBVolts=(double(dataB)-obj.codeZero)/obj.codeRange*obj.channelBRange;
+
+            end
+        end
+        
+        function setSizeSpectralVoltagePower(obj, numSamples, numAvg)
+            if(numSamples>obj.maxSamples)
+                fprintf('Error: attempted to acquire too many samples, %f samples',numSamples);
+                return;
+            end
+            obj.numGroupsPerCapture=floor(obj.maxSamples/numSamples); %the max number of groups that will fit in a single capture for requested size of numSamples
+            obj.myNumCaptures=ceil(numAvg/obj.numGroupsPerCapture); %how many captures of numGroupsPerCapture are needed to collect all requested groups, which is numAvg
+            obj.setAcquisitionSize(obj.numGroupsPerCapture*numSamples);
+            obj.numSamplesForAvgSpectralPower=numSamples;
+            obj.numAvgForAvgSpectralPower=numAvg;
         end
         
         %acquire spectral noise power in units of V^2/Hz, specify number
         %of samples in the FFT and the number of FFT's to take and average
         %so far only implemented for chA
-        %do not need to call prepForAcquisition for this one
-        function [freq, dataAPwr, dataBPwr] = acquireAvgSpectralVoltagePower(obj, numSamples, numAvg, channelMask)
-            if(numSamples>obj.maxSamples)
-                fprintf('Error: attempted to acquire too many samples, %f samples',numSamples);
-                return;
-            end
+        %call setSizeSpectralVoltagePower before calling this function
+        function [freq, dataAPwr, dataBPwr, rawAData, rawBData] = acquireAvgSpectralVoltagePower(obj, channelMask)
             count=0;
-            numGroupsPerCapture=floor(obj.maxSamples/numSamples);
-            myNumCaptures=floor(numAvg/numGroupsPerCapture)+1;
-            obj.setAcquisitionSize(numGroupsPerCapture*numSamples);
             if(channelMask=='A')
-                sum=zeros(1,numSamples/2+1);
-                for i=1:myNumCaptures
+                sum=zeros(1,obj.numSamplesForAvgSpectralPower/2+1);
+                rawBData=0;
+                for i=1:obj.myNumCaptures
                     [dataA, ~] = obj.acquireVoltSamples(channelMask);
-                    for j=0:numGroupsPerCapture-1
-                        index=j*numSamples;
-                        voltages=dataA(index+1:index+numSamples);
+                    for j=0:obj.numGroupsPerCapture-1
+                        index=j*obj.numSamplesForAvgSpectralPower;
+                        voltages=dataA(index+1:index+obj.numSamplesForAvgSpectralPower);
+
                         xdft=fft(voltages);
-                        xdft=xdft(1:numSamples/2+1);
+                        xdft=xdft(1:obj.numSamplesForAvgSpectralPower/2+1);
                         psdx = abs(xdft).^2;
+                        %figure(7)
+%                         if(j==5)
+%                             plot(dataA);
+%                         end
 
                         sum=sum+psdx;
                         count=count+1;
-                        if(count==numAvg)
+                        if(count==obj.numAvgForAvgSpectralPower)
                             break;
                         end
                     end
-                    if(count==numAvg)
+                    if(count==obj.numAvgForAvgSpectralPower)
                         break;
                     end
                 end
@@ -413,26 +609,28 @@ classdef ATS850Driver < handle
                 sum(2:end-1) = 2*sum(2:end-1);
 
                 %not sures about this factor of 2 here
-                dataAPwr=sum/(2*numAvg^2);
+                dataAPwr=sum/(2*obj.numAvgForAvgSpectralPower^2);
+                rawAData=dataA;
                 dataBPwr=0;
             elseif(channelMask=='B')
-                sum=zeros(1,numSamples/2+1);
-                for i=1:myNumCaptures
+                sum=zeros(1,obj.numSamplesForAvgSpectralPower/2+1);
+                rawAData=0;
+                for i=1:obj.myNumCaptures
                     [~, dataB] = obj.acquireVoltSamples(channelMask);
-                    for j=0:numGroupsPerCapture-1
-                        index=j*numSamples;
-                        voltages=dataB(index+1:index+numSamples);
+                    for j=0:obj.numGroupsPerCapture-1
+                        index=j*obj.numSamplesForAvgSpectralPower;
+                        voltages=dataB(index+1:index+obj.numSamplesForAvgSpectralPower);
                         xdft=fft(voltages);
-                        xdft=xdft(1:numSamples/2+1);
+                        xdft=xdft(1:obj.numSamplesForAvgSpectralPower/2+1);
                         psdx = abs(xdft).^2;
 
                         sum=sum+psdx;
                         count=count+1;
-                        if(count==numAvg)
+                        if(count==obj.numAvgForAvgSpectralPower)
                             break;
                         end
                     end
-                    if(count==numAvg)
+                    if(count==obj.numAvgForAvgSpectralPower)
                         break;
                     end
                 end
@@ -440,64 +638,96 @@ classdef ATS850Driver < handle
                 sum(2:end-1) = 2*sum(2:end-1);
 
                 %not sures about this factor of 2 here
-                dataBPwr=sum/(2*numAvg^2);
-            else
-                sumB=zeros(1,numSamples/2+1);
+                dataBPwr=sum/(2*obj.numAvgForAvgSpectralPower^2);
+                dataAPwr=0;
+                rawBData=dataB;
+            else %takes 28 msec
+                sumB=zeros(1,obj.numSamplesForAvgSpectralPower/2+1);
                 sumA=sumB;
-                for i=1:myNumCaptures
-                    [dataA, dataB] = obj.acquireVoltSamples(channelMask);
-                    for j=0:numGroupsPerCapture-1
-                        index=j*numSamples;
-                        voltagesA=dataA(index+1:index+numSamples);
+                for i=1:obj.myNumCaptures %22+6msec per iteration
+ %                   obj.myNumCaptures %trhis is 2 but should be 1, now fixed
+                    [dataA, dataB] = obj.acquireVoltSamples(channelMask); %21-22 msec
+%                     figure(2);
+%                     plot(dataA); %ok
+                    for j=0:obj.numGroupsPerCapture-1
+                        index=j*obj.numSamplesForAvgSpectralPower;
+                        voltagesA=dataA(index+1:index+obj.numSamplesForAvgSpectralPower);
                         xdftA=fft(voltagesA);
-                        xdftA=xdftA(1:numSamples/2+1);
+                        xdftA=xdftA(1:obj.numSamplesForAvgSpectralPower/2+1);
                         psdxA = abs(xdftA).^2;
                         sumA=sumA+psdxA;
-
-                        voltagesB=dataB(index+1:index+numSamples);
-                        xdftB=fftB(voltagesB);
-                        xdftB=xdftB(1:numSamples/2+1);
+                        
+                        
+                        voltagesB=dataB(index+1:index+obj.numSamplesForAvgSpectralPower);
+                        xdftB=fft(voltagesB);
+                        xdftB=xdftB(1:obj.numSamplesForAvgSpectralPower/2+1);
                         psdxB = abs(xdftB).^2;
                         sumB=sumB+psdxB;
                         
+%                         if j==230
+%                             figure(3);
+%                             %plot(voltagesA); %ok for j=5 and 230
+%                             semilogy(psdxA); %ok for j=5 and 230
+%                             ylim([1e-8 1e2]);
+%                         end
+                        
                         count=count+1;
-                        if(count==numAvg)
+                        if(count==obj.numAvgForAvgSpectralPower)
                             break;
                         end
                     end
-                    if(count==numAvg)
+                    if(count==obj.numAvgForAvgSpectralPower)
                         break;
                     end
+                    toc
                 end
+%                 figure(14);
+%                  semilogy(sumA); %ok
+%                  ylim([1e-8 1e2]);
+                
                 %not sure about this factor of 2 here
-                sumA(2:end-1) = 2*sumB(2:end-1);
+                sumA(2:end-1) = 2*sumA(2:end-1);
                 sumB(2:end-1) = 2*sumB(2:end-1);
 
+%                  figure(14);
+%                  semilogy(sumA); %not ok
+%                  ylim([1e-8 1e2]);
+                 %ylim([1e
+%                 figure(15);
+%                 loglog(sumA);
+%                 figure(16);
+%                 plot(dataB);
+%                 figure(17);
+%                 loglog(sumB);
+                
                 %not sures about this factor of 2 here
-                dataAPwr=sumA/(2*numAvg^2);
-                dataBPwr=sumB/(2*numAvg^2);
+                dataAPwr=sumA/(2*obj.numAvgForAvgSpectralPower^2);
+                dataBPwr=sumB/(2*obj.numAvgForAvgSpectralPower^2);
+                rawAData=dataA;
+                rawBData=dataB;
             end 
             
-            freq = 0:obj.SamplingFrequency/numSamples:obj.SamplingFrequency/2;
+            freq = 0:obj.SamplingFrequency/obj.numSamplesForAvgSpectralPower:obj.SamplingFrequency/2;
+            
         end
         
         %calculate the total avg noise power in units of V^2
         %channelMask should be 'A' 'B' or 'A'+'B'
-        function [pwrA, pwrB] = totalVoltagePwr(obj, channelMask)
+        function [pwrA, pwrB, rawAData, rawBData] = totalVoltagePwr(obj, channelMask)
             if(~(channelMask=='A' || channelMask=='B' || channelMask=='A'+'B'))
                 fprintf('Channel mask is incorrect');
                 return;
             end
             if(channelMask=='A')
-                [dataA, ~]=obj.acquireVoltSamples();
+                [dataA, ~,rawAData, rawBData]=obj.acquireVoltSamples();
                 pwrA=meansqr(dataA);
                 pwrB=0;
             elseif(channelMask=='B')
-                [~, dataB]=obj.acquireVoltSamples();
+                [~, dataB, rawAData, rawBData]=obj.acquireVoltSamples();
                 pwrA=0;
                 pwrB=meansqr(dataB); 
             else
-                [dataA, dataB]=obj.acquireVoltSamples();
+                [dataA, dataB, rawAData, rawBData]=obj.acquireVoltSamples();
                 pwrA=meansqr(dataA);
                 pwrB=meansqr(dataB); 
             end
@@ -510,7 +740,8 @@ classdef ATS850Driver < handle
         %mask should be in the form of a Nx2 vector
         %N is the number of bands to remove
         %first number in pair is lower bound, second is upper bound
-        function [totalPowerA, totalPowerB] = acquireTotalAvgVoltagePowerWithSpectralMask(obj, maskA, maskB, numSamples, numAvg, channelMask)
+        %call setSizeSpectralVoltagePower before calling this function
+        function [totalPowerA, totalPowerB, rawAData, rawBData] = acquireTotalAvgVoltagePowerWithSpectralMask(obj, maskA, maskB, channelMask)
             if(~(channelMask=='A' || channelMask=='B' || channelMask=='A'+'B'))
                 fprintf('Channel mask is incorrect');
                 return;
@@ -528,17 +759,21 @@ classdef ATS850Driver < handle
                 return;
             end
             
+            
             if(channelMask=='A')
-                [freq, dataAPwr, ~] = acquireAvgSpectralVoltagePower(obj, numSamples, numAvg, channelMask);
+                [freq, dataAPwr, ~, rawAData, rawBData] = acquireAvgSpectralVoltagePower(obj, channelMask);
 
             elseif(channelMask=='B')
-                [freq, ~, dataBPwr] = acquireAvgSpectralVoltagePower(obj, numSamples, numAvg, channelMask);
+                [freq, ~, dataBPwr, rawAData, rawBData] = acquireAvgSpectralVoltagePower(obj, channelMask);
 
             else
-                 [freq, dataAPwr, dataBPwr] = acquireSpectralVoltagePower(obj);
+                
+                 [freq, dataAPwr, dataBPwr, rawAData, rawBData] = acquireAvgSpectralVoltagePower(obj, channelMask); %33msec
+                 
             end
             
-                        
+            %the rest of this function takes one msec or less to complete
+            %for both channels 
             %find indices of freq that should be masked
             indicesA=-ones(1,length(freq));
             indicesB=indicesA;
@@ -565,13 +800,13 @@ classdef ATS850Driver < handle
                 for(i=1:countA)
                     dataAPwr(indicesA(i))=0;
                 end
-                totalPowerA=sum(dataAPwr)*obj.SamplingFrequency/numSamples;
+                totalPowerA=sum(dataAPwr)*obj.SamplingFrequency/obj.numSamplesForAvgSpectralPower;
                 totalPowerB=0;
             elseif(channelMask=='B')
                 for(i=1:countB-1)
                     dataBPwr(indicesB(i))=0;
                 end
-                totalPowerB=sum(dataBPwr)*obj.SamplingFrequency/numSamples;
+                totalPowerB=sum(dataBPwr)*obj.SamplingFrequency/obj.numSamplesForAvgSpectralPower;
                 totalPowerA=0;
             else
                 for(i=1:countA-1)
@@ -580,11 +815,11 @@ classdef ATS850Driver < handle
                 for(i=1:countB-1)
                     dataBPwr(indicesB(i))=0;
                 end
-                totalPowerA=sum(dataAPwr)*obj.SamplingFrequency/numSamples;
-                totalPowerB=sum(dataBPwr)*obj.SamplingFrequency/numSamples; 
+                totalPowerA=sum(dataAPwr)*obj.SamplingFrequency/obj.numSamplesForAvgSpectralPower;
+                totalPowerB=sum(dataBPwr)*obj.SamplingFrequency/obj.numSamplesForAvgSpectralPower; 
             end
         end  %end function acquireTotalAvgVoltagePowerWithSpectralMask
-    end %end class
+    end %end methods
 
     
     properties (Hidden=true, Constant)

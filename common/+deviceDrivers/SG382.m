@@ -20,8 +20,11 @@ classdef SG382 < deviceDrivers.lib.GPIBorEthernet
     
     properties
         ampN
+        ampBNC_RMS
         ampBNC
         freq
+        AM_modulationDepthPercentage; %in percentage points
+        modulationRate
     end
     
     methods
@@ -42,6 +45,13 @@ classdef SG382 < deviceDrivers.lib.GPIBorEthernet
             assert(isnumeric(value),'amplitude must by numeric')
             obj.write('AMPL %d', value);
         end
+        function val = get.ampBNC_RMS(obj)
+            val = str2double(obj.query('AMPL? RMS'));
+        end
+        function obj = set.ampBNC_RMS(obj, value)
+            assert(isnumeric(value),'amplitude must by numeric')
+            obj.write('AMPL %f RMS', value);
+        end
         function val = get.freq(obj)
             val = str2double(obj.query('FREQ?'));
         end
@@ -49,6 +59,21 @@ classdef SG382 < deviceDrivers.lib.GPIBorEthernet
             assert(isnumeric(value),'amplitude must by numeric')
             obj.write('FREQ %E', value);
         end
+        function val = get.modulationRate(obj)
+            val = str2double(obj.query('RATE?'));
+        end
+        function obj = set.modulationRate(obj, value)
+            assert(isnumeric(value),'modulation rate must by numeric')
+            obj.write('RATE %f', value);
+        end
+        function val=get.AM_modulationDepthPercentage(obj)
+            val = str2double(obj.query('ADEP?'));
+        end
+        function obj=set.AM_modulationDepthPercentage(obj, value)
+            assert(isnumeric(value),'AM modulation must by numeric')
+            obj.write('ADEP %f', value);
+        end
+        
     end
     
 end
