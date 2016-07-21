@@ -8,7 +8,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function data = leiden_Ndc_R_T__Vg_T(Ih_list, Vg_list, Nmeasurements, VWaitTime1,...
+function data = leiden_Ndc_R_T__Vg_T(Ih_list, Vg_list, B_list, Nmeasurements, VWaitTime1,...
     VWaitTime2, measurementWaitTime, TwaitTime, Vg_rampRate, SD_Rex, SD_Vex,...
     EmailJess, EmailKC, UniqueName)
 %%Internal convenience functions
@@ -109,13 +109,13 @@ SD.connect('1')
 VG = deviceDrivers.YokoGS200();
 VG.connect('140.247.189.132')
 %connect to magnet supply
-%MS = deviceDrivers.AMI430();
-%MS.connect('140.247.189.135');
+MS = deviceDrivers.AMI430();
+MS.connect('140.247.189.135');
 
 %initialize magnet supply
-%MS.ramp_rate = 0.001;
-%MS.target_field = B_field;
-%MS.ramp();
+MS.ramp_rate = 0.001;
+MS.target_field = B_field;
+MS.ramp();
 
 %initialize the gate
 VG.range = 30;
@@ -185,10 +185,20 @@ figure(991);
 %% main loop
 pb = createPauseButton;
 pause(0.01);
-%while MS.state() ~= 2
-%        pause(5);
-%end
+while MS.state() ~= 2
+    pause(5);
+end
 tic
+for B_n=1:length(B_list)
+    %set field
+    target_field = B_list(B_n);
+    MS.target_field = target_field;
+    currentVg = Vg_list(1);
+    VG.ramp2V(currentVg,rampRate);
+    %state 2 is 'HOLDING at the target field/current'
+    while MS.state() ~= 2
+        pause(5);
+    end
 for Ih_n=1:length(Ih_list)
     %set field
     currentIh = Ih_list(Ih_n);

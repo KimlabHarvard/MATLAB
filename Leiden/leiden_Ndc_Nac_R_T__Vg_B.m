@@ -9,8 +9,8 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function data = leiden_Ndc_Nac_R_T__Vg_B(B_list, Vg_list, Tac_list, Vex_list,...
-    gain_curve, Nmeasurements, VWaitTime1, VWaitTime2, measurementWaitTime,...
-    EmailJess, EmailKC, UniqueName)
+    gain_curve, SD_Rex, Nmeasurements, VWaitTime1, VWaitTime2, rampRate, ...
+    measurementWaitTime, EmailJess, EmailKC, UniqueName)
 %%Internal convenience functions
 
     function plot1Dcond(i)
@@ -32,9 +32,9 @@ function data = leiden_Ndc_Nac_R_T__Vg_B(B_list, Vg_list, Tac_list, Vex_list,...
     function plotTvP(i,j)
         change_to_figure(993); clf;
         mask = find(squeeze(data.Q(i,j,:)));
-        plot(squeeze(data.Q(i,j,mask))*1E9, squeeze(data.Tac(i,j,mask)),'.','MarkerSize',15);
+        plot(squeeze(data.Q(i,j,mask))*1E9, 1E3*squeeze(data.Tac(i,j,mask)),'.','MarkerSize',15);
         hold all; plot(0,0,'.','MarkerSize',15);
-        xlabel('Power (nW)');ylabel('\DeltaT (K)');
+        xlabel('Power (nW)');ylabel('\DeltaT (mK)');
         title(sprintf('Vg = %.2f V and B = %.3f T',Vg_list(j),B_list(i)));
         box on; grid on;
     end
@@ -53,6 +53,15 @@ function data = leiden_Ndc_Nac_R_T__Vg_B(B_list, Vg_list, Tac_list, Vex_list,...
         view(2);shading flat; box on; colormap(cmap);
         h = colorbar; ylabel(h, 'G_{th} (nW/K)');
     end
+    function plot2L()
+        change_to_figure(996); clf;
+        L=mean(data.G,3).*mean(data.R,3)./mean(data.T,3);
+        surf(data.Vg,data.B,10*log10(L/2.44E-8));
+        xlabel('gate voltage (V)');ylabel('Field (T)');box on;grid on;
+        view(2);shading flat; box on; colormap(cmap);
+        h = colorbar; ylabel(h, 'L/L_0 (dB)');
+    end
+
 
 %measures the data
     function measure_data(i,j,k)
@@ -95,7 +104,7 @@ function data = leiden_Ndc_Nac_R_T__Vg_B(B_list, Vg_list, Tac_list, Vex_list,...
         data.Vsd_Y(i,j,k) = mean(data.raw.Vsd_Y(i,j,k,:));
         data.VNdc(i,j,k) = mean(data.raw.VNdc(i,j,k,:));
         data.VNac_X(i,j,k) = mean(data.raw.VNac_X(i,j,k,:));
-        data.VNac_Y(i,j,k) = mean(data.raw.VNac_X(i,j,k,:));
+        data.VNac_Y(i,j,k) = mean(data.raw.VNac_Y(i,j,k,:));
         
         data.std.T(i,j,k) = std(data.raw.T(i,j,k,:));
         data.std.Vsd_X(i,j,k) = std(data.raw.Vsd_X(i,j,k,:));
@@ -104,10 +113,11 @@ function data = leiden_Ndc_Nac_R_T__Vg_B(B_list, Vg_list, Tac_list, Vex_list,...
         data.std.VNac_X(i,j,k) = std(data.raw.VNac_X(i,j,k,:));
         data.std.VNac_Y(i,j,k) = std(data.raw.VNac_X(i,j,k,:));
         
-        R = sqrt(data.Vsd_X(i,j,k)^2+data.raw.Vsd_Y(i,j,k)^2)*SD_Rex/SD_Vex;
+        Vsd = sqrt(data.Vsd_X(i,j,k)^2+data.raw.Vsd_Y(i,j,k)^2);
+        R = Vsd*SD_Rex/(SD_Vex-Vsd);
         g = gain_curve(log10(R));
-        Q = 2*R*(SD_Vex/SD_Rex)^2; %factor of 2 converts between rms and p2p
-        Tac = 2*sqrt(2)*sqrt(data.VNac_X(i,j,k)^2+data.raw.VNac_Y(i,j,k)^2)/g;
+        Q = 2*R*(SD_Vex/(SD_Rex+R))^2; %factor of 2 converts between rms and p2p
+        Tac = 2*sqrt(2)*data.VNac_X(i,j,k)/g;
         data.Tac(i,j,k) = Tac;
         data.R(i,j,k) = R;
         data.Q(i,j,k) = Q;
@@ -121,14 +131,13 @@ function data = leiden_Ndc_Nac_R_T__Vg_B(B_list, Vg_list, Tac_list, Vex_list,...
 
 
 %saftey checks (more checks below)
-assert(max(abs(Vg_list)) <= 2.5,'Gate voltage set above 2.5 V');
+assert(max(abs(Vg_list)) <= 32,'Gate voltage set above 32 V');
 assert(max(abs(B_list)) <= 5, 'Field set above 5 T');
 pause on;
 
 %% Initialize data structure, equipment, and filename
 
 %set constants
-SD_Rex = 458.7E3; %resistor in series with sample
 SD_phase = 0; %Phase to use on LA sine output
 SD_freq = 17.777;
 SD_timeConstant = 0.3; %time constant to use on LA
@@ -169,9 +178,8 @@ MS.target_field = target_field;
 MS.ramp();
 
 %initialize the gate
-VG.range = 10;
 currentVg = Vg_list(1);
-VG.ramp2V(currentVg,0.1);
+VG.ramp2V(currentVg,rampRate);
 
 %initialize the DC noise voltmeter
 Ndc.sense_mode = 'volt';
@@ -245,7 +253,8 @@ data.settings.Nac.phase = Nac.sinePhase;
 
 %initialize plots
 cmap = cbrewer('div','RdYlBu',246,'linear');
-figure(991);clf;figure(992);clf;figure(993);clf;figure(994);clf;figure(995);clf;
+figure(991);clf;figure(992);clf;figure(993);clf;
+figure(994);clf;figure(995);clf;figure(996);clf;
 %% main loop
 pb = createPauseButton;
 pause(0.01);
@@ -257,7 +266,7 @@ for B_n=1:length(B_list)
     MS.target_field = target_field;
     %reset gate
     currentVg = Vg_list(1);
-    VG.ramp2V(currentVg,0.1);
+    VG.ramp2V(currentVg,rampRate);
     %state 2 is 'HOLDING at the target field/current'
     while MS.state() ~= 2
         pause(5);
@@ -266,12 +275,12 @@ for B_n=1:length(B_list)
         %set Vg
         
         currentVg = Vg_list(Vg_n);
-        VG.ramp2V(currentVg,0.1);
+        VG.ramp2V(currentVg,rampRate);
         
         %set excitation current to first value
         SD_Vex=min(max(0.01,round(100*Vex_list(Vg_n))/100),5);
         SD.sineAmp=SD_Vex;
-        if Vg_n==1
+        if Vg_n==1 && B_n ~= 1
             pause(VWaitTime1);
         else
             pause(VWaitTime2);
@@ -280,25 +289,39 @@ for B_n=1:length(B_list)
         %first measurment G is unknown, so you can set a target T
         %second measurment uses G from first to estimate Q for target T
         for Tn=1:length(Tac_list) 
-            %round Vex to nearest 10mV between 10mV and 5 V
-            SD_Vex=min(max(0.01,round(100*Vex_list(Vg_n))/100),5);
+            %round Vex to nearest 2mV between 4mV and 5 V
+            SD_Vex=min(max(0.004,round(500*Vex_list(Vg_n))/500),5);
             SD.sineAmp=SD_Vex;
             measure_data(B_n,Vg_n,Tn)
             %use the previous G to estimate what Vex is needed next
             Tnext = Tac_list(mod(Tn,length(Tac_list))+1);
-            Vex_list(Vg_n) = sqrt(data.G(B_n,Vg_n,Tn)*Tnext/data.R(B_n,Vg_n,Tn))*SD_Rex;
+            G = mean(data.G(B_n,Vg_n,1:Tn));
+            R = max(50,mean(data.R(B_n,Vg_n,1:Tn)));
+            if G > 0
+                Vex_list(Vg_n) = sqrt(G*Tnext/R)*SD_Rex;
+            else
+                Vex_list(Vg_n) = Vex_list(Vg_n)*sqrt(2);
+            end
             plotTvP(B_n,Vg_n);pause(0.01);
         end
         
-        if mod(Vg_n,10)==1
-        plot1Dcond(B_n);
-        plot1DG(B_n);
-        plot2DG();
-        plot2DR();
+        if mod(Vg_n,1)==0
+            plot1Dcond(B_n);
+            plot1DG(B_n);
+            plot2DG();
+            plot2DR();
+            %plot2L();
+            save_data();
         end
         
     end
     save_data();
+    %plots
+    plot1Dcond(B_n);
+    plot1DG(B_n);
+    plot2DG();
+    plot2DR();
+    %plot2L();
     toc
 end
 
@@ -308,7 +331,8 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 pause off
 close(pb)
-VG.ramp2V(0,0.1);
+SD.sineAmp = 0.004;
+VG.ramp2V(0,rampRate);
 %Heat.value = 0;
 %MS.zero();
 T.disconnect();

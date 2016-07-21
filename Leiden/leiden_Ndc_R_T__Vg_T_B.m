@@ -1,40 +1,48 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%     What and hOw?      %%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Records VNA, resistance via lockin, and temperature of X110375 via lockin
-% on leiden in Kimlab
-% Created in Jun 2016 by Jesse Crossno
+% Records VNA, resistance via lockin, temperature of X110375 via lockin,
+% and noise power via keithley on leiden in Kimlab
+% Created in Jul 2016 by Jesse Crossno
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function data = leiden_Ndc_R_T__Vg_T_B(B_list, Ih_list, Vg_list, Nmeasurements, VWaitTime1,...
-    VWaitTime2, measurementWaitTime, TwaitTime, Vg_rampRate, SD_Rex, SD_Vex,...
+function data = leiden_Ndc_R_T__Vg_T_B(B_list,Ih_list, Vg_list, Nmeasurements, VWaitTime1,...
+    VWaitTime2, MagWaitTime, measurementWaitTime, TwaitTime, Vg_rampRate, SD_Rex, SD_Vex,...
     EmailJess, EmailKC, UniqueName)
 %%Internal convenience functions
 
-    function plot1Dconductance(i)
-        change_to_figure(993); clf;
-        plot(data.Vg, 25813./data.R(i,:),'.','MarkerSize',15);
+    function plot1Dconductance(i,j)
+        change_to_figure(993); hold all;
+        if j == 1
+            clf;
+        end
+        plot(data.Vg, squeeze(25813./data.R(i,j,:)),'.','MarkerSize',15);
         xlabel('Vg (Volts)');ylabel('Conductance (h/e^2)');
         box on; grid on;
     end
-    function plot1Dnoise(i)
-        change_to_figure(992); clf;
-        plot(data.Vg, data.VNdc(i,:),'.','MarkerSize',15);
+    function plot1Dnoise(i,j)
+        change_to_figure(992); hold all;
+        if j==1
+            clf;
+        end
+        VNdc = squeeze(data.VNdc(i,j,:));
+        mask = find(VNdc ~= 0);
+        plot(data.Vg(mask), VNdc(mask),'.','MarkerSize',15);
         xlabel('Vg (Volts)');ylabel('V_{noise}');
         box on; grid on;
     end
-    function plot2Dnoise()
+    function plot2Dnoise(i)
         change_to_figure(991); clf;
-        surf(data.Vg,data.T,data.VNdc);
+        surf(data.Vg,squeeze(data.T(i,:,:)),squeeze(data.VNdc(i,:,:)));
         xlabel('gate voltage (V)');ylabel('Temperature (K)');box on;grid on;
         title('Noise voltage (V)')
         view(2);shading flat; colorbar; box on; colormap(cmap);
     end
 
 %measures the data
-    function measure_data(i,j)
+    function measure_data(i,j,k)
         n = 1;
         t = clock;
         %repeat measurements n time
@@ -42,15 +50,15 @@ function data = leiden_Ndc_R_T__Vg_T_B(B_list, Ih_list, Vg_list, Nmeasurements, 
             while etime(clock,t) < measurementWaitTime
             end
             t = clock; %pausing this way accounts for the measurement time
-            data.raw.time(i,j,n) = etime(clock, StartTime);
-            data.raw.T(i,j,n) = T.temperature();
-            [data.raw.Vsd_X(i,j,n), data.raw.Vsd_Y(i,j,n)] = SD.snapXY();
-            data.raw.R(i,j,n) = ...
-                sqrt(data.raw.Vsd_X(i,j,n)^2+data.raw.Vsd_Y(i,j,n)^2)*SD_Rex/SD_Vex;
-            data.raw.VNdc(i,j,n) = Ndc.voltage();
+            data.raw.time(i,j,k,n) = etime(clock, StartTime);
+            data.raw.T(i,j,k,n) = T.temperature();
+            [data.raw.Vsd_X(i,j,k,n), data.raw.Vsd_Y(i,j,k,n)] = SD.snapXY();
+            data.raw.R(i,j,k,n) = ...
+                sqrt(data.raw.Vsd_X(i,j,k,n)^2+data.raw.Vsd_Y(i,j,k,n)^2)*SD_Rex/SD_Vex;
+            data.raw.VNdc(i,j,k,n) = Ndc.voltage();
             
             %check if we are between 5% and 95% of the range, if not autoSens
-            high = max(data.raw.Vsd_X(i,j,n),data.raw.Vsd_Y(i,j,n));
+            high = max(data.raw.Vsd_X(i,j,k,n),data.raw.Vsd_Y(i,j,k,n));
             if high > SD_sens*0.95 || high < SD_sens*0.05
                 SD.autoSens(0.25,0.75);
                 SD_sens = SD.sens();
@@ -59,20 +67,20 @@ function data = leiden_Ndc_R_T__Vg_T_B(B_list, Ih_list, Vg_list, Nmeasurements, 
                 n = n+1;
             end
         end
-        data.time(i,j) = mean(data.raw.time(i,j,:));
-        data.T(i,j) = mean(data.raw.T(i,j,:));
-        data.Vsd_X(i,j) = mean(data.raw.Vsd_X(i,j,:));
-        data.Vsd_Y(i,j) = mean(data.raw.Vsd_Y(i,j,:));
-        data.R(i,j) = mean(data.raw.R(i,j,:));
-        data.VNdc(i,j) = mean(data.raw.VNdc(i,j,:));
-        data.std.T(i,j) = std(data.raw.T(i,j,:));
-        data.std.Vsd_X(i,j) = std(data.raw.Vsd_X(i,j,:));
-        data.std.Vsd_Y(i,j) = std(data.raw.Vsd_Y(i,j,:));
-        data.std.R(i,j) = std(data.raw.R(i,j,:));
-        data.std.VNdc(i,j) = std(data.raw.VNdc(i,j,:));
+        data.time(i,j,k) = mean(data.raw.time(i,j,k,:));
+        data.T(i,j,k) = mean(data.raw.T(i,j,k,:));
+        data.Vsd_X(i,j,k) = mean(data.raw.Vsd_X(i,j,k,:));
+        data.Vsd_Y(i,j,k) = mean(data.raw.Vsd_Y(i,j,k,:));
+        data.R(i,j,k) = mean(data.raw.R(i,j,k,:));
+        data.VNdc(i,j,k) = mean(data.raw.VNdc(i,j,k,:));
+        data.std.T(i,j,k) = std(data.raw.T(i,j,k,:));
+        data.std.Vsd_X(i,j,k) = std(data.raw.Vsd_X(i,j,k,:));
+        data.std.Vsd_Y(i,j,k) = std(data.raw.Vsd_Y(i,j,k,:));
+        data.std.R(i,j,k) = std(data.raw.R(i,j,k,:));
+        data.std.VNdc(i,j,k) = std(data.raw.VNdc(i,j,k,:));
     end
 
-    function save_data()%i,j, save_VNA)
+    function save_data()
         save(fullfile(start_dir, [FileName, '.mat']),'data');
     end
 
@@ -108,11 +116,11 @@ SD.connect('1')
 %connect to gate supply
 VG = deviceDrivers.YokoGS200();
 VG.connect('140.247.189.132')
-connect to magnet supply
+%connect to magnet supply
 MS = deviceDrivers.AMI430();
 MS.connect('140.247.189.135');
 
-initialize magnet supply
+%initialize magnet supply
 MS.ramp_rate = 0.001;
 MS.target_field = B_list(1);
 MS.ramp();
@@ -145,8 +153,8 @@ SD_sens = SD.sens;
 
 
 % Initialize data structure
-blank = zeros(length(Ih_list),length(Vg_list));
-blank_raw = zeros(length(Ih_list),length(Vg_list),Nmeasurements);
+blank = zeros(length(B_list),length(Ih_list),length(Vg_list));
+blank_raw = zeros(length(B_list),length(Ih_list),length(Vg_list),Nmeasurements);
 
 data.time = blank;
 data.T = blank;
@@ -162,7 +170,7 @@ data.raw.Vsd_Y = blank_raw;
 data.raw.R = blank_raw;
 data.raw.VNdc = blank_raw;
 
-
+data.B = B_list;
 data.Ih = Ih_list;
 data.Vg = Vg_list;
 
@@ -185,18 +193,22 @@ figure(991);
 %% main loop
 pb = createPauseButton;
 pause(0.01);
-
+while MS.state() ~= 2
+    pause(5);
+end
 tic
-for B_n = 1:length(B_list)
+for B_n=1:length(B_list)
     %set field
     target_field = B_list(B_n);
     MS.target_field = target_field;
-    %reset gate
     currentVg = Vg_list(1);
     VG.ramp2V(currentVg,Vg_rampRate);
     %state 2 is 'HOLDING at the target field/current'
     while MS.state() ~= 2
         pause(5);
+    end
+    if B_n >1
+        pause(MagWaitTime)
     end
     for Ih_n=1:length(Ih_list)
         %set field
@@ -218,16 +230,17 @@ for B_n = 1:length(B_list)
                 pause(VWaitTime2);
             end
             
-            measure_data(Ih_n,Vg_n)
+            measure_data(B_n,Ih_n,Vg_n)
             
-            plot1Dconductance(Ih_n);
-            plot1Dnoise(Ih_n);
-            plot2Dnoise()
+            plot1Dconductance(B_n,Ih_n);
+            plot1Dnoise(B_n,Ih_n);
+            plot2Dnoise(B_n)
         end
         save_data();
         toc
     end
 end
+
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%       Clear     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

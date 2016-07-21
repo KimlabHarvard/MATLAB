@@ -8,8 +8,9 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function data = leiden_VNA_R_T__B_Vg(B_list, Vg_list,Nmeasurements, VWaitTime1,...
-    VWaitTime2, measurementWaitTime, VNAwaitTime, rampRate, EmailJess, EmailKC, UniqueName)
+function data = leiden_VNA_R_T__B_Vg(B_list,Vg_list, Nmeasurements, VWaitTime1,...
+    VWaitTime2, measurementWaitTime, VNAwaitTime, rampRate, SD_Rex, SD_Vex, ...
+    EmailJess, EmailKC, UniqueName)
 %%Internal convenience functions
 
     function plot1Dconductance(i)
@@ -27,9 +28,11 @@ function data = leiden_VNA_R_T__B_Vg(B_list, Vg_list,Nmeasurements, VWaitTime1,.
     function plotVNA(i)
         change_to_figure(991); clf;
         surf(data.freq*1E-6,data.Vg,squeeze(20*log10(abs(data.traces(i,:,:)))));
-        xlabel('Frequency (MHz)');ylabel('S11^2');box on;grid on;
+        xlabel('Frequency (MHz)');ylabel('freq (MHz)');box on;grid on;
         xlim([10,110]);
-        view(2);shading flat; colorbar; box on; colormap(cmap);
+        view(2);shading flat; 
+        h = colorbar; ylabel(h,'S11^2');
+        box on; colormap(cmap);
     end
 
 %measures the data
@@ -44,8 +47,9 @@ function data = leiden_VNA_R_T__B_Vg(B_list, Vg_list,Nmeasurements, VWaitTime1,.
             data.raw.time(i,j,n) = etime(clock, StartTime);
             data.raw.T(i,j,n) = T.temperature();
             [data.raw.Vsd_X(i,j,n), data.raw.Vsd_Y(i,j,n)] = SD.snapXY();
-            data.raw.R(i,j,n) = ...
-                sqrt(data.raw.Vsd_X(i,j,n)^2+data.raw.Vsd_Y(i,j,n)^2)*SD_Rex/SD_Vex;
+            Vsd = sqrt(data.raw.Vsd_X(i,j,n)^2+data.raw.Vsd_Y(i,j,n)^2);
+            data.raw.R(i,j,n) = Vsd*SD_Rex/(SD_Vex-Vsd);
+                
             
             %check if we are between 5% and 95% of the range, if not autoSens
             high = max(data.raw.Vsd_X(i,j,n),data.raw.Vsd_Y(i,j,n));
@@ -75,17 +79,6 @@ function data = leiden_VNA_R_T__B_Vg(B_list, Vg_list,Nmeasurements, VWaitTime1,.
 
     function save_data()%i,j, save_VNA)
         save(fullfile(start_dir, [FileName, '.mat']),'data');
-        %FilePtr = fopen(fullfile(start_dir, [FileName, '.dat']), 'a');
-        %tmp = [Vg_list(Vg_n), data.T(i,j), data.Vsd_X(i,j), data.Vsd_Y(i,j), data.R(i,j)];
-        %fprintf(FilePtr,'%s\t',datestr(clock,'YYYY/mm/DD HH:MM:SS'));
-        %fprintf(FilePtr,'%g\t%g\t%g\t%g\t%g',tmp);
-        %if save_VNA
-        %    for d=data.traces(i,j,:)
-        %        fprintf(FilePtr,'\t%s',num2str(d));
-        %    end
-        %end
-        %fprintf(FilePtr,'\r\n');
-        %fclose(FilePtr);
     end
 
 
@@ -97,8 +90,6 @@ pause on;
 %% get experiment parameters from user
 
 %set constants
-SD_Rex = 10.8E6; %resistor in series with sample
-SD_Vex = 1; %Voltage to use on LA sine output
 SD_phase = 0; %Phase to use on LA sine output
 SD_freq = 17.777;
 SD_timeConstant = 0.3; %time constant to use on LA
@@ -115,7 +106,7 @@ FileName = strcat(datestr(StartTime, 'yyyymmdd_HHMMSS'),'_VNA_R_T__Vg_',UniqueNa
 T = deviceDrivers.X110375(101.1E6,'7');
 % Connect to the VNA
 VNA = deviceDrivers.AgilentE8363C();
-VNA.connect('140.247.189.44')
+VNA.connect('140.247.189.42')
 %Connect source-drain lockin amplifier
 SD = deviceDrivers.SRS830();
 SD.connect('1')
@@ -213,7 +204,7 @@ for B_n=1:length(B_list)
             pause(VWaitTime2);
         end
         
-        measure_data(B_n,Vg_n,mod(B_n,2))
+        measure_data(B_n,Vg_n,1)
         
         plot1Dconductance(B_n);
         if mod(Vg_n,25) == 1
