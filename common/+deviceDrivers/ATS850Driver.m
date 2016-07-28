@@ -577,6 +577,11 @@ classdef ATS850Driver < handle
         %so far only implemented for chA
         %call setSizeSpectralVoltagePower before calling this function
         function [freq, dataAPwr, dataBPwr, rawAData, rawBData] = acquireAvgSpectralVoltagePower(obj, channelMask)
+            %if(~(channelMask=='A' || channelMask=='B' || channelMask=='A'+'B')||strcmp(channelMask,'A-B')||strcmp(channelMask,'B-A'))
+            if(~(channelMask=='A' || channelMask=='B' || channelMask=='A'+'B'))
+                fprintf('Channel mask is incorrect');
+                return;
+            end
             count=0;
             if(channelMask=='A')
                 mysum=zeros(1,obj.numSamplesForAvgSpectralPower/2+1);
@@ -636,14 +641,12 @@ classdef ATS850Driver < handle
                 dataBPwr=mysum/(count*obj.SamplingFrequency*obj.numSamplesForAvgSpectralPower);
                 dataAPwr=0;
                 rawBData=dataB;
-            else %takes 28 msec
+            elseif(channelMask=='A'+'B') %takes 28 msec
                 mysumB=zeros(1,obj.numSamplesForAvgSpectralPower/2+1);
                 mysumA=mysumB;
                 for i=1:obj.myNumCaptures %22+6msec per iteration
  %                   obj.myNumCaptures %trhis is 2 but should be 1, now fixed
                     [dataA, dataB] = obj.acquireVoltSamples(channelMask); %21-22 msec
-%                     figure(2);
-%                     plot(dataA); %ok
                     for j=0:obj.numGroupsPerCapture-1
                         index=j*obj.numSamplesForAvgSpectralPower;    
 
@@ -665,28 +668,79 @@ classdef ATS850Driver < handle
                     if(count==obj.numAvgForAvgSpectralPower)
                         break;
                     end
-                    toc
                 end
-%                 figure(14);
-%                  semilogy(sumA); %ok
-%                  ylim([1e-8 1e2]);
-                
-                %double every element except the first and last
                 mysumA(2:end-1) = 2*mysumA(2:end-1);
                 mysumB(2:end-1) = 2*mysumB(2:end-1);
+                dataAPwr=mysumA/(count*obj.SamplingFrequency*obj.numSamplesForAvgSpectralPower);
+                dataBPwr=mysumB/(count*obj.SamplingFrequency*obj.numSamplesForAvgSpectralPower);
+                rawAData=dataA;
+                rawBData=dataB;
+            elseif(strcmp(channelMask,'A-B')) %takes 28 msec
+                %TODO
+                mysumB=zeros(1,obj.numSamplesForAvgSpectralPower/2+1);
+                mysumA=mysumB;
+                for i=1:obj.myNumCaptures %22+6msec per iteration
+ %                   obj.myNumCaptures %trhis is 2 but should be 1, now fixed
+                    [dataA, dataB] = obj.acquireVoltSamples(channelMask); %21-22 msec
+                    for j=0:obj.numGroupsPerCapture-1
+                        index=j*obj.numSamplesForAvgSpectralPower;    
 
-%                  figure(14);
-%                  semilogy(sumA); %not ok
-%                  ylim([1e-8 1e2]);
-                 %ylim([1e
-%                 figure(15);
-%                 loglog(sumA);
-%                 figure(16);
-%                 plot(dataB);
-%                 figure(17);
-%                 loglog(sumB);
-                
-                %not sures about this factor of 2 here
+                        voltagesA=dataA(index+1:index+obj.numSamplesForAvgSpectralPower);
+                        voltagesB=dataB(index+1:index+obj.numSamplesForAvgSpectralPower);
+                        xdftA=fft(voltagesA);  
+                        xdftB=fft(voltagesB);
+                        xdftA=xdftA(1:obj.numSamplesForAvgSpectralPower/2+1);
+                        xdftB=xdftB(1:obj.numSamplesForAvgSpectralPower/2+1);
+                        psdxA=(abs(xdftA).^2);  
+                        psdxB=(abs(xdftB).^2);  
+                        mysumA=mysumA+psdxA;
+                        mysumB=mysumB+psdxB;
+                        count=count+1;
+                        if(count==obj.numAvgForAvgSpectralPower)
+                            break;
+                        end
+                    end
+                    if(count==obj.numAvgForAvgSpectralPower)
+                        break;
+                    end
+                end
+                mysumA(2:end-1) = 2*mysumA(2:end-1);
+                mysumB(2:end-1) = 2*mysumB(2:end-1);
+                dataAPwr=mysumA/(count*obj.SamplingFrequency*obj.numSamplesForAvgSpectralPower);
+                dataBPwr=mysumB/(count*obj.SamplingFrequency*obj.numSamplesForAvgSpectralPower);
+                rawAData=dataA;
+                rawBData=dataB;
+            elseif(strcmp(channelMask,'B-A'))
+                %TODO
+                mysumB=zeros(1,obj.numSamplesForAvgSpectralPower/2+1);
+                mysumA=mysumB;
+                for i=1:obj.myNumCaptures %22+6msec per iteration
+ %                   obj.myNumCaptures %trhis is 2 but should be 1, now fixed
+                    [dataA, dataB] = obj.acquireVoltSamples(channelMask); %21-22 msec
+                    for j=0:obj.numGroupsPerCapture-1
+                        index=j*obj.numSamplesForAvgSpectralPower;    
+
+                        voltagesA=dataA(index+1:index+obj.numSamplesForAvgSpectralPower);
+                        voltagesB=dataB(index+1:index+obj.numSamplesForAvgSpectralPower);
+                        xdftA=fft(voltagesA);  
+                        xdftB=fft(voltagesB);
+                        xdftA=xdftA(1:obj.numSamplesForAvgSpectralPower/2+1);
+                        xdftB=xdftB(1:obj.numSamplesForAvgSpectralPower/2+1);
+                        psdxA=(abs(xdftA).^2);  
+                        psdxB=(abs(xdftB).^2);  
+                        mysumA=mysumA+psdxA;
+                        mysumB=mysumB+psdxB;
+                        count=count+1;
+                        if(count==obj.numAvgForAvgSpectralPower)
+                            break;
+                        end
+                    end
+                    if(count==obj.numAvgForAvgSpectralPower)
+                        break;
+                    end
+                end
+                mysumA(2:end-1) = 2*mysumA(2:end-1);
+                mysumB(2:end-1) = 2*mysumB(2:end-1);
                 dataAPwr=mysumA/(count*obj.SamplingFrequency*obj.numSamplesForAvgSpectralPower);
                 dataBPwr=mysumB/(count*obj.SamplingFrequency*obj.numSamplesForAvgSpectralPower);
                 rawAData=dataA;
@@ -730,6 +784,7 @@ classdef ATS850Driver < handle
         %first number in pair is lower bound, second is upper bound
         %call setSizeSpectralVoltagePower before calling this function
         function [totalPowerA, totalPowerB, rawAData, rawBData] = acquireTotalAvgVoltagePowerWithSpectralMask(obj, maskA, maskB, channelMask)
+            %if(~(channelMask=='A' || channelMask=='B' || channelMask=='A'+'B'||strcmp(channelMask,'A-B')||strcmp(channelMask,'B-A')))
             if(~(channelMask=='A' || channelMask=='B' || channelMask=='A'+'B'))
                 fprintf('Channel mask is incorrect');
                 return;
@@ -749,16 +804,18 @@ classdef ATS850Driver < handle
             
             
             if(channelMask=='A')
-                [freq, dataAPwr, ~, rawAData, rawBData] = acquireAvgSpectralVoltagePower(obj, channelMask); %this gives all 0's for some reason
-
+                [freq, dataAPwr, ~, rawAData, rawBData] = acquireAvgSpectralVoltagePower(obj, channelMask);
             elseif(channelMask=='B')
                 [freq, ~, dataBPwr, rawAData, rawBData] = acquireAvgSpectralVoltagePower(obj, channelMask);
-
-            else
-                
+            elseif(channelMask=='A'+'B'))
                  [freq, dataAPwr, dataBPwr, rawAData, rawBData] = acquireAvgSpectralVoltagePower(obj, channelMask); %33msec
-                 
+            elseif(strcmp(channelMask,'A-B'))
+                [freq, dataAPwr, ~, rawAData, rawBData] = acquireAvgSpectralVoltagePower(obj, channelMask);
+            elseif(strcmp(channelMask,'B-A'))
+                [freq, ~, dataBPwr, rawAData, rawBData] = acquireAvgSpectralVoltagePower(obj, channelMask);
             end
+            
+            %TODO: finish this function for A-B and B-A
             
             %the rest of this function takes one msec or less to complete
             %for both channels 

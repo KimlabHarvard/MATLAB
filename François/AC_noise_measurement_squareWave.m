@@ -1,7 +1,7 @@
 %take square wave AC measurementss by varying the current between two
 %nearby values
 
-function AC_noise_measurement()
+function AC_noise_measurement_squareWave()
     clear temp StartTime start_dir CoolLogData;
     close all;
     fclose all;
