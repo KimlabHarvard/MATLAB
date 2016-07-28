@@ -25,6 +25,7 @@ classdef SG382 < deviceDrivers.lib.GPIBorEthernet
         freq
         AM_modulationDepthPercentage; %in percentage points
         modulationRate
+        bncPowerState
     end
     
     methods
@@ -51,6 +52,13 @@ classdef SG382 < deviceDrivers.lib.GPIBorEthernet
         function obj = set.ampBNC_RMS(obj, value)
             assert(isnumeric(value),'amplitude must by numeric')
             obj.write('AMPL %f RMS', value);
+        end
+        function val = get.bncPowerState(obj)
+            val = str2double(obj.query('ENBL?'));
+        end
+        function obj = set.bncPowerState(obj, value)
+            assert(isnumeric(value),'power state must be 1 or 1')
+            obj.write('ENBL %d', value);
         end
         function val = get.freq(obj)
             val = str2double(obj.query('FREQ?'));

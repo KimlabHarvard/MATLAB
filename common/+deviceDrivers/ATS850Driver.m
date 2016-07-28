@@ -546,7 +546,7 @@ classdef ATS850Driver < handle
             
             if(channelMask=='A')
                 [dataA, ~] = obj.acquireDataSamples(channelMask);
-                dataAVolts=(dataA-obj.codeZero)/obj.codeRange*obj.channelARange; %cast dataA to double
+                dataAVolts=(double(dataA)-obj.codeZero)/obj.codeRange*obj.channelARange; %cast dataA to double
                 dataBVolts=0;
             elseif(channelMask=='B')
                 [~, dataB] = obj.acquireDataSamples(channelMask);
@@ -579,24 +579,20 @@ classdef ATS850Driver < handle
         function [freq, dataAPwr, dataBPwr, rawAData, rawBData] = acquireAvgSpectralVoltagePower(obj, channelMask)
             count=0;
             if(channelMask=='A')
-                sum=zeros(1,obj.numSamplesForAvgSpectralPower/2+1);
+                mysum=zeros(1,obj.numSamplesForAvgSpectralPower/2+1);
                 rawBData=0;
                 for i=1:obj.myNumCaptures
                     [dataA, ~] = obj.acquireVoltSamples(channelMask);
+                    %dataA %this gives all 0's
                     for j=0:obj.numGroupsPerCapture-1
                         index=j*obj.numSamplesForAvgSpectralPower;
                         voltages=dataA(index+1:index+obj.numSamplesForAvgSpectralPower);
-
-                        xdft=fft(voltages);
+                        xdft=fft(voltages);  
                         xdft=xdft(1:obj.numSamplesForAvgSpectralPower/2+1);
-                        psdx = abs(xdft).^2;
-                        %figure(7)
-%                         if(j==5)
-%                             plot(dataA);
-%                         end
-
-                        sum=sum+psdx;
+                        psdx=(abs(xdft).^2);                        
+                        mysum=mysum+psdx;
                         count=count+1;
+                        %correct is sum(abs(xdft).^2)/1024^2
                         if(count==obj.numAvgForAvgSpectralPower)
                             break;
                         end
@@ -605,26 +601,26 @@ classdef ATS850Driver < handle
                         break;
                     end
                 end
-                %not sure about this factor of 2 here
-                sum(2:end-1) = 2*sum(2:end-1);
-
-                %not sures about this factor of 2 here
-                dataAPwr=sum/(2*obj.numAvgForAvgSpectralPower^2);
+                %double every element except the first and last
+                mysum(2:end-1) = 2*mysum(2:end-1);
+                dataAPwr=mysum/(count*obj.SamplingFrequency*obj.numSamplesForAvgSpectralPower);
+                %these two match and are correct now
+                %myvar=var(dataA)
+                %mypwr=sum(dataAPwr)*50000000/1024
                 rawAData=dataA;
                 dataBPwr=0;
             elseif(channelMask=='B')
-                sum=zeros(1,obj.numSamplesForAvgSpectralPower/2+1);
+                mysum=zeros(1,obj.numSamplesForAvgSpectralPower/2+1);
                 rawAData=0;
                 for i=1:obj.myNumCaptures
                     [~, dataB] = obj.acquireVoltSamples(channelMask);
                     for j=0:obj.numGroupsPerCapture-1
                         index=j*obj.numSamplesForAvgSpectralPower;
                         voltages=dataB(index+1:index+obj.numSamplesForAvgSpectralPower);
-                        xdft=fft(voltages);
+                        xdft=fft(voltages);  
                         xdft=xdft(1:obj.numSamplesForAvgSpectralPower/2+1);
-                        psdx = abs(xdft).^2;
-
-                        sum=sum+psdx;
+                        psdx=(abs(xdft).^2);                        
+                        mysum=mysum+psdx;
                         count=count+1;
                         if(count==obj.numAvgForAvgSpectralPower)
                             break;
@@ -634,43 +630,33 @@ classdef ATS850Driver < handle
                         break;
                     end
                 end
+                %double every element except the first and last
+                mysum(2:end-1) = 2*mysum(2:end-1);
                 %not sure about this factor of 2 here
-                sum(2:end-1) = 2*sum(2:end-1);
-
-                %not sures about this factor of 2 here
-                dataBPwr=sum/(2*obj.numAvgForAvgSpectralPower^2);
+                dataBPwr=mysum/(count*obj.SamplingFrequency*obj.numSamplesForAvgSpectralPower);
                 dataAPwr=0;
                 rawBData=dataB;
             else %takes 28 msec
-                sumB=zeros(1,obj.numSamplesForAvgSpectralPower/2+1);
-                sumA=sumB;
+                mysumB=zeros(1,obj.numSamplesForAvgSpectralPower/2+1);
+                mysumA=mysumB;
                 for i=1:obj.myNumCaptures %22+6msec per iteration
  %                   obj.myNumCaptures %trhis is 2 but should be 1, now fixed
                     [dataA, dataB] = obj.acquireVoltSamples(channelMask); %21-22 msec
 %                     figure(2);
 %                     plot(dataA); %ok
                     for j=0:obj.numGroupsPerCapture-1
-                        index=j*obj.numSamplesForAvgSpectralPower;
+                        index=j*obj.numSamplesForAvgSpectralPower;    
+
                         voltagesA=dataA(index+1:index+obj.numSamplesForAvgSpectralPower);
-                        xdftA=fft(voltagesA);
-                        xdftA=xdftA(1:obj.numSamplesForAvgSpectralPower/2+1);
-                        psdxA = abs(xdftA).^2;
-                        sumA=sumA+psdxA;
-                        
-                        
                         voltagesB=dataB(index+1:index+obj.numSamplesForAvgSpectralPower);
+                        xdftA=fft(voltagesA);  
                         xdftB=fft(voltagesB);
+                        xdftA=xdftA(1:obj.numSamplesForAvgSpectralPower/2+1);
                         xdftB=xdftB(1:obj.numSamplesForAvgSpectralPower/2+1);
-                        psdxB = abs(xdftB).^2;
-                        sumB=sumB+psdxB;
-                        
-%                         if j==230
-%                             figure(3);
-%                             %plot(voltagesA); %ok for j=5 and 230
-%                             semilogy(psdxA); %ok for j=5 and 230
-%                             ylim([1e-8 1e2]);
-%                         end
-                        
+                        psdxA=(abs(xdftA).^2);  
+                        psdxB=(abs(xdftB).^2);  
+                        mysumA=mysumA+psdxA;
+                        mysumB=mysumB+psdxB;
                         count=count+1;
                         if(count==obj.numAvgForAvgSpectralPower)
                             break;
@@ -685,9 +671,9 @@ classdef ATS850Driver < handle
 %                  semilogy(sumA); %ok
 %                  ylim([1e-8 1e2]);
                 
-                %not sure about this factor of 2 here
-                sumA(2:end-1) = 2*sumA(2:end-1);
-                sumB(2:end-1) = 2*sumB(2:end-1);
+                %double every element except the first and last
+                mysumA(2:end-1) = 2*mysumA(2:end-1);
+                mysumB(2:end-1) = 2*mysumB(2:end-1);
 
 %                  figure(14);
 %                  semilogy(sumA); %not ok
@@ -701,8 +687,8 @@ classdef ATS850Driver < handle
 %                 loglog(sumB);
                 
                 %not sures about this factor of 2 here
-                dataAPwr=sumA/(2*obj.numAvgForAvgSpectralPower^2);
-                dataBPwr=sumB/(2*obj.numAvgForAvgSpectralPower^2);
+                dataAPwr=mysumA/(count*obj.SamplingFrequency*obj.numSamplesForAvgSpectralPower);
+                dataBPwr=mysumB/(count*obj.SamplingFrequency*obj.numSamplesForAvgSpectralPower);
                 rawAData=dataA;
                 rawBData=dataB;
             end 
@@ -719,18 +705,20 @@ classdef ATS850Driver < handle
                 return;
             end
             if(channelMask=='A')
-                [dataA, ~,rawAData, rawBData]=obj.acquireVoltSamples();
-                pwrA=meansqr(dataA);
+                [dataA, ~]=obj.acquireVoltSamples(channelMask);
+                pwrA=var(dataA);
                 pwrB=0;
             elseif(channelMask=='B')
-                [~, dataB, rawAData, rawBData]=obj.acquireVoltSamples();
+                [~, dataB]=obj.acquireVoltSamples(channelMask);
                 pwrA=0;
-                pwrB=meansqr(dataB); 
+                pwrB=var(dataB); 
             else
-                [dataA, dataB, rawAData, rawBData]=obj.acquireVoltSamples();
-                pwrA=meansqr(dataA);
-                pwrB=meansqr(dataB); 
+                [dataA, dataB,]=obj.acquireVoltSamples(channelMask);
+                pwrA=var(dataA);
+                pwrB=var(dataB); 
             end
+            rawAData=dataA;
+            rawBData=dataB;
  
         end
         
@@ -761,7 +749,7 @@ classdef ATS850Driver < handle
             
             
             if(channelMask=='A')
-                [freq, dataAPwr, ~, rawAData, rawBData] = acquireAvgSpectralVoltagePower(obj, channelMask);
+                [freq, dataAPwr, ~, rawAData, rawBData] = acquireAvgSpectralVoltagePower(obj, channelMask); %this gives all 0's for some reason
 
             elseif(channelMask=='B')
                 [freq, ~, dataBPwr, rawAData, rawBData] = acquireAvgSpectralVoltagePower(obj, channelMask);
