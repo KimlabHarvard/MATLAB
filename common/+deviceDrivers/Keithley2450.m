@@ -36,10 +36,40 @@ classdef Keithley2450 < deviceDrivers.lib.GPIBorEthernet
       source_limit
       source_range
       sense_range
+      readback %boolean, whether instrument records the measured or configured source value
    end
     
     methods
         function obj = Keithley2450()
+        end
+        
+        function set.readback(obj, value)
+            if isnumeric(value) || islogical(value)
+                value = num2str(value);
+            end
+            valid_inputs = ['on', 'ON', '1', 'off', 'OFF', '0'];
+            if ~ismember(value, valid_inputs)
+                error('Invalid input');
+            end
+            myMode=obj.source_mode;
+            if(strcmp(myMode,'CURR'))
+                obj.write([':SOURce:CURRage:READ:BACK' value]);
+            elseif(strcmp(myMode,'VOLT'))
+                obj.write([':SOURce:VOLTage:READ:BACK' value]);
+            else
+                error(['received unexpected source mode', mode]);
+            end
+        end
+        
+        function val = get.readback(obj)
+            myMode=obj.source_mode;
+            if(strcmp(myMode,'CURR'))
+                val=obj.query(':SOURce:CURRage:READ:BACK?');
+            elseif(strcmp(myMode,'VOLT'))
+                val=obj.query(':SOURce:VOLTage:READ:BACK?');
+            else
+                error(['received unexpected source mode', mode]);
+            end
         end
         
         %get mode
@@ -194,7 +224,23 @@ classdef Keithley2450 < deviceDrivers.lib.GPIBorEthernet
             val = str2double(obj.query(':MEAS:VOLT?'));
         end
         
+        function [force, sense] = measureForceAndSense(obj)
+            myString=obj.query(':READ? READ, SOUR');
+            mySplitString=strsplit(myString,',');
+            force=mySplitString(2);
+            sense=mySplitString(1);
+        end
         
+        function setFourWireVoltSense(obj, value)
+            if isnumeric(value) || islogical(value)
+                value = num2str(value);
+            end
+            valid_inputs = ['ON', '1', 'OFF', '0'];
+            if ~ismember(value, valid_inputs)
+                error('Invalid input');
+            end
+            obj.write([':SENSe:VOLT:RSENse ' value]);
+        end
         
         function val = get.limitTripped(obj)
             if str2double(obj.query('SOUR:VOLT:TRIP?'))

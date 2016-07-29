@@ -25,6 +25,32 @@ classdef (Sealed) YokoGS200 < deviceDrivers.lib.deviceDriverBase & deviceDrivers
     end
     
     methods
+        function setSourceCurrent(obj,myCurrent)
+            assert(isnumeric(myCurrent),'current must be numeric');
+            obj.write(':SOURCE:FUNCTION current');
+            %set the range to the proper value
+            ranges = 1e-3*[1, 10, 100, 200];
+            index=1;
+            while(ranges(index)<myCurrent)
+                index=index+1;
+            end
+            obj.write([':SOURCE:RANGE ' num2str(ranges(index))]);
+            obj.write([':SOURCE:LEVEL ' num2str(myCurrent)]);
+        end
+        
+        function setSourceVoltage(obj,myVoltage)
+            assert(isnumeric(myCurrent),'current must be numeric');
+            obj.write(':SOURCE:FUNCTION current');
+            %set the range to the proper value
+            ranges = [1e-3, 10e-3, 100e-3, 200e-3, 1, 10, 30];
+            index=1;
+            while(ranges(index)<myCurrent)
+                index=index+1;
+            end
+            obj.write([':SOURCE:RANGE ' num2str(ranges(index))]);
+            obj.write([':SOURCE:LEVEL ' num2str(myVoltage)]);
+        end
+        
         function obj = YokoGS200()
             obj.DEFAULT_PORT = 7655;
         end
