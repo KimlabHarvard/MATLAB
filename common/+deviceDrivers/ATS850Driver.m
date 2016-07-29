@@ -807,7 +807,7 @@ classdef ATS850Driver < handle
                 [freq, dataAPwr, ~, rawAData, rawBData] = acquireAvgSpectralVoltagePower(obj, channelMask);
             elseif(channelMask=='B')
                 [freq, ~, dataBPwr, rawAData, rawBData] = acquireAvgSpectralVoltagePower(obj, channelMask);
-            elseif(channelMask=='A'+'B'))
+            elseif(channelMask=='A'+'B')
                  [freq, dataAPwr, dataBPwr, rawAData, rawBData] = acquireAvgSpectralVoltagePower(obj, channelMask); %33msec
             elseif(strcmp(channelMask,'A-B'))
                 [freq, dataAPwr, ~, rawAData, rawBData] = acquireAvgSpectralVoltagePower(obj, channelMask);
