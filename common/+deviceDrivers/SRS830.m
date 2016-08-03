@@ -35,6 +35,9 @@ classdef (Sealed) SRS830 < deviceDrivers.lib.GPIB
         X % read X value of signal
         Y % read Y value of signal
         bufferPoints %number of data points currently stored in buffer
+        signal %vector of [X Y R theta] simultaneously measured
+        signal2 %vector of [X Y R theta] simultaneously measured
+        XY %vector of [X Y] simultaneously measured
     end
     
     properties(Constant)
@@ -182,6 +185,10 @@ classdef (Sealed) SRS830 < deviceDrivers.lib.GPIB
             Y = str2double(str(commaPos:end));
         end
         
+        function val = get.XY(obj)
+            val=obj.snapXY();
+        end
+        
         %Getter for the current signal level in any flavour
         function [X, Y, R, theta] = get_signal(obj)
             values = textscan(obj.query('SNAP ? 1,2,3,4'), '%f', 'Delimiter', ',');
@@ -189,6 +196,9 @@ classdef (Sealed) SRS830 < deviceDrivers.lib.GPIB
             Y = values{1}(2);
             R = values{1}(3);
             theta = values{1}(4);
+        end
+        function val=get.signal(obj)
+            val=obj.get_signal();
         end
         
         %Getter for the current signal level in any flavour
@@ -202,6 +212,10 @@ classdef (Sealed) SRS830 < deviceDrivers.lib.GPIB
             Y = values{1}(2);
             R = values{1}(3);
             theta = values{1}(4);
+        end
+        
+        function val=get.signal2(obj)
+            val=obj.get_signal2();
         end
         
         %Getter for signal magnitude
