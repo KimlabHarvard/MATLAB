@@ -572,7 +572,7 @@ classdef ATS850Driver < handle
             obj.numAvgForAvgSpectralPower=numAvg;
         end
         
-        %acquire spectral noise power in units of V^2/Hz, specify number
+        %acquire spectral noise power in units of W/Hz, specify number
         %of samples in the FFT and the number of FFT's to take and average
         %so far only implemented for chA
         %call setSizeSpectralVoltagePower before calling this function
@@ -747,11 +747,14 @@ classdef ATS850Driver < handle
                 rawBData=dataB;
             end 
             
+            %convert from volts^2 to W
+            dataAPwr=dataAPwr/50;
+            dataBPwr=dataBPwr/50;
             freq = 0:obj.SamplingFrequency/obj.numSamplesForAvgSpectralPower:obj.SamplingFrequency/2;
             
         end
         
-        %calculate the total avg noise power in units of V^2
+        %calculate the total avg noise power in units of W
         %channelMask should be 'A' 'B' or 'A'+'B'
         function [pwrA, pwrB, rawAData, rawBData] = totalVoltagePwr(obj, channelMask)
             if(~(channelMask=='A' || channelMask=='B' || channelMask=='A'+'B'))
@@ -776,7 +779,7 @@ classdef ATS850Driver < handle
  
         end
         
-        %returns the total power in units of V^2 by converting to FFT, applying spectral
+        %returns the total power in units of W by converting to FFT, applying spectral
         %mask, and integrating
         %the applied mask is the mask in which the frequencies are removed
         %mask should be in the form of a Nx2 vector
