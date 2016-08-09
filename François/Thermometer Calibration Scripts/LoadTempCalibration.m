@@ -2,7 +2,7 @@
 %loads calibration data from file into Lakeshore LS335
 
 %load the calibration data 
-load C:\Users\Gladys\Desktop\X108541.dat;
+%load C:\GitHub\MATLAB\X108541.dat;
 
 curve=21;
 %name='CX_1030_AA';
@@ -32,9 +32,8 @@ ls335.connect('12')
 ls335.set_curve_header(curve, name, serialNumber, format, limitValue, coefficient)
 
 %function set_curve_val(obj, curve, index, val, temp)
-len=length(avgCalibratedTemps);
+len=length(avgCalibratedTemps)
 for i=1:len
-    i
       %ls335.set_curve_val(curve,i,log10(resistances(len-i+1)),temps(len-i+1));
       ls335.set_curve_val(curve,i,avgVoltage(len-i+1),avgCalibratedTemps(len-i+1));
 end

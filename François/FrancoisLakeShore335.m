@@ -47,7 +47,6 @@ classdef FrancoisLakeShore335 < deviceDrivers.Lakeshore335
             pid=[interp1(obj.temps1, obj.P1, val), interp1(obj.temps1, obj.I1, val), interp1(obj.temps1, obj.D1, val)];
             %the interpolation above is correct
             obj.PID1=pid;
-            obj.PID1
             if(val<obj.lowLimit1)
                 obj.range1=1;
             elseif(val<obj.medLimit1)

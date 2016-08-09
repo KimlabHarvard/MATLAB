@@ -6,48 +6,59 @@ function AC_noise_measurement_squareWave()
     close all;
     fclose all;
 
-    numberOfSamples=2^10;
-    numberOfAverages=255;
-    numberOfCycles=35000; %each cycle will be approx 82-83 msec
-    cycleTime=0.082;
-    tempWaitTime=60*10; %10 mins
+    numberOfSamples=2^16;
+    numberOfAverages=2^2-1;
+    numberOfCycles=1000; %each cycle will be approx 82-83 msec
+    cycleTime=0.047;
+    tempWaitTime=0;%60*2; %2 mins
 
     
-    UniqueName='Al Tunnel Junction SquareWaveAC measurement for many temps test';
+    UniqueName='Graphene_baseTemp_shotNoise_3K_to_60K_0Vg';
     %UniqueName = input('Enter uniquie file identifier: ','s');
-    start_dir = 'C:\Users\Artem\My Documents\Data\AL Tunnel Junction\';
+    start_dir = 'C:\Users\Artem\My Documents\Data\Graphene Shot Noise\';
     StartTime = clock;
     FileName = strcat('Tlog_', datestr(StartTime, 'yyyymmdd_HHMMSS'),'_',UniqueName,'.mat');
 
     resistance=10530000;
-    sampleResistance=16000;
-    range=0.1;
+    sampleResistance=1590;
+    range=0.04;
     
-    digitizerCard = deviceDrivers.ATS850Driver(1,1);
+    digitizerCard = deviceDrivers.ATS850DriverPipelined(1,1);
     %digitizerCard.setTriggerDelay(50000); %1ms delay time
     digitizerCard.setTriggerTimeout(0); %infinite timeout
     digitizerCard.configureChannel('A', 'AC', range, 50);
-    digitizerCard.configureChannel('B', 'DC', 4, 1000000);
+    digitizerCard.configureChannel('B', 'DC', 5, 1000000);
     
-    sg386=deviceDrivers.SG382();
-    sg386.connect('27');
+    %sg386=deviceDrivers.SG382();
+    %sg386.connect('27');
+    
+    lowBiasController=deviceDrivers.YokoGS200();
+    highBiasController=deviceDrivers.YokoGS200();
+    lowBiasController.connect('17');
+    highBiasController.connect('18');
+    lowBiasController.mode='voltage';
+    highBiasController.mode='voltage';
+    lowBiasController.value=0;
+    highBiasController.value=0;
+    lowBiasController.output=1;
+    highBiasController.output=1;
     
     tempController=FrancoisLakeShore335();
     tempController.connect('12');
 
     %mask for the FFT, square bandpass filter
-    fftMask=[0 1.31e7; 1.56e7 3e7];
+    fftMask=[0 1.81e7; 2.13e7 3e7];
     %currentList=[5 5; 5 10; 10 15; 15 20; 20 30; 30 40; 40 50; 50 60; 60 70; 70 80; 80 90; 90 100; 110 120; 130 150; 170 190; 210 240; 270 300; 330 360; 400 450]*1e-9;
-    %currentList=[5 30; 30 60; 60 100; 100 150; 150 200; 250 300; 300 350; 350 400]*1e-9;
-    tempList=[5 10 20 30 50 70 100];
+    currentList=[0 0; 100 200; 300 400; 500 600; 700 800; 900 1000; 1100 1200; 1300 1400; 1500 1600; 1700 1800; 1900 2000; 2100 2200; 2300 2400; 2500 2600]*1e-9;
+    tempList=[60];
     %currentList=1e-9*[0 0; 5 20; 20 40; 40 60; 60 80; 80 100; 100 120; 120 140; 140 160; 160 180; 180 200; 200 225; 225 250; 250 275; 275 300; 300 350; 350 400; 400 450; 450 500; 550 600];
-    currentList=1e-9*[0 0; 5 20; 20 40; 40 70; 70 100; 100 140; 140 180; 180 230; 230 280; 280 340; 340 400; 400 475; 475 550; 550 650; 650 750; 750 850; 850 1000]
+    %currentList=1e-9*[0 0; 5 20; 20 40; 40 70; 70 100; 100 140; 140 180; 180 230; 230 280; 280 340; 340 400; 400 475; 475 550; 550 650; 650 750; 750 850; 850 1000]
     %currentList=1e-9*[0 0; 0 0; 0 0; 0 0; 0 0; 0 0;]
     [s1, ~]=size(currentList);
     
     gateVoltageList=[0];
   
-    estTimePerTemp=s1*numberOfCycles*cycleTime/60/60*1.3
+    estTimePerTemp=s1*numberOfCycles*length(tempList)*cycleTime/60/60+tempWaitTime*length(tempList)/60/60
     
     %time in s
     %temp in K
@@ -67,7 +78,7 @@ function AC_noise_measurement_squareWave()
     %axes = gca;
     %set(axes,'XScale','log','YScale','log');
     xlabel('voltage across sample (V)');
-    ylabel('derivative (V^2/V)');
+    ylabel('derivative (W/V)');
     grid on;
     
     figure(2);    
@@ -75,7 +86,7 @@ function AC_noise_measurement_squareWave()
     %axes = gca;
     %set(axes,'XScale','log','YScale','log');
     xlabel('voltage across sample (V)');
-    ylabel('Total Power (V^2)');
+    ylabel('Total Power (W)');
     grid on;
     
     figure(3);
@@ -92,16 +103,17 @@ for tempIndex=1:length(tempList)
     startingTemp=tempController.temperatureA;
     finalTemp=tempList(tempIndex);
     tempController.setPoint1=tempList(tempIndex);
+    tempDiff=0.01;
     if(finalTemp>startingTemp)%we are warming
         fprintf('warming to %f K\n', finalTemp)
-        while(keeplooping && tempController.temperatureA<finalTemp-0.1)
+        while(keeplooping && tempController.temperatureA<finalTemp-tempDiff)
             fprintf('current temp is %f K\n', tempController.temperatureA);
             pause(5);
         end
         fprintf('temp of %f K reached\n', finalTemp)
     else%we are cooling
         fprintf('cooling to %f K\n', finalTemp)
-        while(keeplooping && tempController.temperatureA>finalTemp+0.1)
+        while(keeplooping && tempController.temperatureA>finalTemp+tempDiff)
             fprintf('current temp is %f K\n', tempController.temperatureA);
             pause(5);
         end
@@ -142,11 +154,11 @@ for tempIndex=1:length(tempList)
         data.voltage2(tempIndex,gateVoltageIndex,2*currentIndex)=0;%currentSource.voltage;
         
                 
-        %if the data is eqaul to infinity, set it to zero so the plots will work
+        %if the data is equal to infinity, set it to zero so the plots will work
         if(data.derivs(tempIndex,gateVoltageIndex,currentIndex)==Inf || data.derivs(tempIndex,gateVoltageIndex,currentIndex)==-Inf)
             data.derivs(tempIndex,gateVoltageIndex,currentIndex)=0;
         end
-        if(data.derivErr(tempIndex,gateVoltageIndex,currentIndex)==Inf || data.deriv(ErrtempIndex,gateVoltageIndex,currentIndex)==-Inf)
+        if(data.derivErr(tempIndex,gateVoltageIndex,currentIndex)==Inf || data.derivErr(tempIndex,gateVoltageIndex,currentIndex)==-Inf)
             data.derivErr(tempIndex,gateVoltageIndex,currentIndex)=0;
         end
         
@@ -171,35 +183,31 @@ end %end temp for loop
         lowNoiseArray=zeros(1,numCycles+1);
         highNoiseArray=zeros(1,numCycles);
         
-        %set up the square wave current source to correct amplitudes
-        if(currentList(currentIndex,1)==0 && currentList(currentIndex,2)==0)
-            sg386.bncPowerState=0;
-        else
-            sg386.bncPowerState=1;
-        end
-        voltageAmpl=(lowCurrent+highCurrent)/2*(resistance+sampleResistance)/20.828;
-        sg386.ampBNC_RMS=voltageAmpl;
-        sg386.AM_modulationDepthPercentage=(highCurrent-lowCurrent)/(lowCurrent+highCurrent)*100;
-        pause(1);
+        lowBiasController.value=lowCurrent*(sampleResistance+resistance);
+        highBiasController.value=highCurrent*(sampleResistance+resistance);
+        
+        pause(.05);
         
         
         %set current to low, measure, then to high, and measure, and repeat
 
         %set the trigger to proper levels; this should be custom calibrated based on the trigger wave
         triggerLevelVoltsTop=2.5;
-        triggerLevelVoltsBottom=0.32;
-        triggerRangeVolts=4;
+        triggerLevelVoltsBottom=2.5;
+        triggerRangeVolts=5;
         triggerLevelCodeTop=128+127*triggerLevelVoltsTop/triggerRangeVolts;
         triggerLevelCodeBottom=128+127*triggerLevelVoltsBottom/triggerRangeVolts;
-        digitizerCard.setTriggerOperation('J_or_K','B','positive',triggerLevelCodeTop,'B','negative',triggerLevelCodeBottom); %160 works for range of 1, so does 130
+        digitizerCard.setTriggerOperation('J_or_K','B','positive',triggerLevelCodeTop,'B','negative',triggerLevelCodeBottom);
         digitizerCard.setSizeSpectralVoltagePower(numSamples,numAvg);
-        digitizerCard.setTriggerDelay(350000);
+        digitizerCard.setTriggerDelay(50000);
         digitizerCard.setTriggerTimeout(0);
         
-        [lowNoiseArray(1),~,aDataForHist,rawSamples]=digitizerCard.acquireTotalAvgVoltagePowerWithSpectralMask(fftMask, fftMask, 'A'+'B');
+        digitizerCard.pipeline_startSpectralPipeline();
+        
+        [lowNoiseArray(1),~,aDataForHist,rawSamples]=digitizerCard.pipeline_acquireTotalAvgVoltagePowerWithSpectralMask(fftMask, fftMask, 'A'+'B');
         %if the data is the incorrect type (wrong polarity) take it again to get the right polarity
-        while(rawSamples(1000)>1)
-            [lowNoiseArray(1),~,aDataForHist,rawSamples]=digitizerCard.acquireTotalAvgVoltagePowerWithSpectralMask(fftMask, fftMask, 'A'+'B');
+        while(rawSamples(1000)<1)
+            [lowNoiseArray(1),~,aDataForHist,rawSamples]=digitizerCard.pipeline_acquireTotalAvgVoltagePowerWithSpectralMask(fftMask, fftMask, 'A'+'B');
         end
         figure(1992);
         hist(aDataForHist/range*127.5+127.5,(1:256));
@@ -208,26 +216,27 @@ end %end temp for loop
         
         drawnow;        
         for j=1:numCycles   %can get this down to about 83 msec for A and B
-            if(rem(j,1000)==0)
-            tic
-            end
+            %if(rem(j,100)==0)
+                %tic
+            %end
             
-            [highNoiseArray(j),~,~,rawSamples]=digitizerCard.acquireTotalAvgVoltagePowerWithSpectralMask(fftMask, fftMask, 'A'+'B');
+            [highNoiseArray(j),~,~,rawSamples]=digitizerCard.pipeline_acquireTotalAvgVoltagePowerWithSpectralMask(fftMask, fftMask, 'A'+'B');
             %if the data is the incorrect type (wrong polarity) take it again to get the right polarity 
-            while(rawSamples(1000)<3)
-                [highNoiseArray(j),~,~,rawSamples]=digitizerCard.acquireTotalAvgVoltagePowerWithSpectralMask(fftMask, fftMask, 'A'+'B');
+            while(rawSamples(1000)>4)
+                fprintf('freq too high %d\n',j);
+                [highNoiseArray(j),~,~,rawSamples]=digitizerCard.pipeline_acquireTotalAvgVoltagePowerWithSpectralMask(fftMask, fftMask, 'A'+'B');
             end
 
-            [lowNoiseArray(j+1),~,~,rawSamples]=digitizerCard.acquireTotalAvgVoltagePowerWithSpectralMask(fftMask, fftMask, 'A'+'B');
+            [lowNoiseArray(j+1),~,~,rawSamples]=digitizerCard.pipeline_acquireTotalAvgVoltagePowerWithSpectralMask(fftMask, fftMask, 'A'+'B');
             %if the data is the incorrect type (wrong polarity) take it again to get the right polarity
-            while(rawSamples(1000)>1)
-                [lowNoiseArray(j+1),~,~,rawSamples]=digitizerCard.acquireTotalAvgVoltagePowerWithSpectralMask(fftMask, fftMask, 'A'+'B');
+            while(rawSamples(1000)<1)
+                [lowNoiseArray(j+1),~,~,rawSamples]=digitizerCard.pipeline_acquireTotalAvgVoltagePowerWithSpectralMask(fftMask, fftMask, 'A'+'B');
             end
             
-            if(rem(j,5000)==0)
-            toc
-            fprintf('measuring %e to %e nanoAmps, iteration %d of %d\n, at %f gate voltage, at %f Kelvin',currentList(currentIndex,1),currentList(currentIndex,2),j,numCycles,gateVoltageList(gateVoltageIndex),tempList(tempIndex));
-            end
+            %if(rem(j,100)==0)
+                %toc
+            %fprintf('measuring %e to %e nanoAmps, iteration %d of %d\n, at %f gate voltage, at %f Kelvin',currentList(currentIndex,1),currentList(currentIndex,2),j,numCycles,gateVoltageList(gateVoltageIndex),tempList(tempIndex));
+            %end
         %toc
         end
         
