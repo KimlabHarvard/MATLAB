@@ -21,8 +21,8 @@
 classdef Keithley2450 < deviceDrivers.lib.GPIBorEthernet
     
     properties
-        voltage
-        current
+        voltage %this should be removed, unclear whether source or sense
+        current %this should be removed, unclear whether source or sense
         resistance
         output
         sense_mode
@@ -37,6 +37,10 @@ classdef Keithley2450 < deviceDrivers.lib.GPIBorEthernet
       source_range
       sense_range
       readback %boolean, whether instrument records the measured or configured source value
+      sourceVoltage
+      sourceCurrent
+      senseVoltage
+      senseCurrent
    end
     
     methods
@@ -205,10 +209,42 @@ classdef Keithley2450 < deviceDrivers.lib.GPIBorEthernet
             % Validate input
             assert(isnumeric(value), 'Invalid input');
             obj.write(sprintf('SOUR:CURR %G;',value));
+            warning('you should set sourceCurrent or senseCurrent to avoid ambiguities');
+        end
+        
+        %set source current
+        function obj = set.sourceCurrent(obj, value)
+            % Validate input
+            assert(isnumeric(value), 'Invalid input');
+            %verify source mode is voltage
+            mySourceMode=obj.source_mode;
+            assert(strcmp(mySourceMode,'CURR'),['attempted to set source current when source mode is ',mySourceMode]);
+            obj.write(sprintf('SOUR:CURR %G;',value));
+        end
+        
+        function obj = set.senseCurrent(obj, ~)
+            warning('you should not be setting the sense current.  that is just stupid');
         end
         
         %get mode
         function val = get.current(obj)
+            val = str2double(obj.query(':MEAS:CURR?'));
+            warning('you should get sourceCurrent or senseCurrent to avoid ambiguities');
+        end
+        
+        %get source current
+        function val = get.sourceCurrent(obj)
+            %verify source mode is voltage
+            mySourceMode=obj.source_mode;
+            assert(strcmp(mySourceMode,'CURR'),['attempted to measure source current when source mode is ',mySourceMode]);
+            val = str2double(obj.query(':SOUR:CURR?'));
+        end
+        
+        %get sense current
+        function val = get.senseCurrent(obj)
+            %verify source mode is voltage
+            mySenseMode=obj.sense_mode;
+            assert(strcmp(mySenseMode,'CURR:DC'),['attempted to measure sense current when sense mode is ',mySourceMode]);
             val = str2double(obj.query(':MEAS:CURR?'));
         end
         
@@ -217,13 +253,47 @@ classdef Keithley2450 < deviceDrivers.lib.GPIBorEthernet
             % Validate input
             assert(isnumeric(value), 'Invalid input');
             obj.write(sprintf('SOUR:VOLT %G;',value));
+            warning('you should set sourceCurrent or senseCurrent to avoid ambiguities');
         end
         
-        %get mode
+         % set source voltage
+        function obj = set.sourceVoltage(obj, value)
+            % Validate input
+            assert(isnumeric(value), 'Invalid input');
+            %verify source mode is voltage
+            mySourceMode=obj.source_mode;
+            assert(strcmp(mySourceMode,'VOLT:DC'),['attempted to set source voltage when source mode is ',mySourceMode]);
+            obj.write(sprintf('SOUR:VOLT %G;',value));
+        end
+        
+        % set source voltage
+        function obj = set.senseVoltage(obj, ~)
+            warning('you should not be setting the sense voltage.  that is just stupid');
+        end
+        
+        %get voltage
         function val = get.voltage(obj)
+            val = str2double(obj.query(':MEAS:VOLT?'));
+            warning('you should get sourceCurrent or senseCurrent to avoid ambiguities');
+        end
+        
+        %get sense voltage
+        function val = get.senseVoltage(obj)
+            %verify source mode is voltage
+            mySenseMode=obj.sense_mode;
+            assert(strcmp(mySenseMode,'VOLT:DC'),['attempted to measure sense voltage when sense mode is ',mySenseMode]);
             val = str2double(obj.query(':MEAS:VOLT?'));
         end
         
+        %get source voltage
+        function val = get.sourceVoltage(obj)
+            %verify source mode is voltage
+            mySourceMode=obj.source_mode;
+            assert(strcmp(mySourceMode,'VOLT:DC'),['attempted to measure source voltage when source mode is ',mySourceMode]);
+            val = str2double(obj.query(':SOUR:VOLT?'));
+        end
+        
+        %not sure if this works?
         function [force, sense] = measureForceAndSense(obj)
             myString=obj.query(':READ? READ, SOUR');
             mySplitString=strsplit(myString,',');
