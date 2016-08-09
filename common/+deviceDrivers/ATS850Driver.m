@@ -608,7 +608,9 @@ classdef ATS850Driver < handle
                 end
                 %double every element except the first and last
                 mysum(2:end-1) = 2*mysum(2:end-1);
-                dataAPwr=mysum/(count*obj.SamplingFrequency*obj.numSamplesForAvgSpectralPower);
+                
+                dataAPwr=mysum/(count*obj.SamplingFrequency*obj.numSamplesForAvgSpectralPower); %this is good
+                
                 %these two match and are correct now
                 %myvar=var(dataA)
                 %mypwr=sum(dataAPwr)*50000000/1024
@@ -763,16 +765,16 @@ classdef ATS850Driver < handle
             end
             if(channelMask=='A')
                 [dataA, ~]=obj.acquireVoltSamples(channelMask);
-                pwrA=var(dataA);
+                pwrA=var(dataA)/50;
                 pwrB=0;
             elseif(channelMask=='B')
                 [~, dataB]=obj.acquireVoltSamples(channelMask);
                 pwrA=0;
-                pwrB=var(dataB); 
+                pwrB=var(dataB)/50; 
             else
                 [dataA, dataB,]=obj.acquireVoltSamples(channelMask);
-                pwrA=var(dataA);
-                pwrB=var(dataB); 
+                pwrA=var(dataA)/50;
+                pwrB=var(dataB)/50; 
             end
             rawAData=dataA;
             rawBData=dataB;
