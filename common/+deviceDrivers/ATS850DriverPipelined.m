@@ -210,6 +210,10 @@ classdef ATS850DriverPipelined < handle
         
         %part of the pipeline; call this function to pull data from buffer and store in obj.myDataA and obj.myDataB
         function pipeline_pullBuffer(obj, channelMask)
+            
+            %testing this 8_14_2016
+            obj.pBuffer = AlazarAllocBuffer(obj.boardHandle, obj.bytesPerBuffer + 16);
+            
             obj.myDataASamples=0;
             obj.myDataBSamples=0;
             record=1;
@@ -283,6 +287,9 @@ classdef ATS850DriverPipelined < handle
                 end
 
             end
+            
+            %testing this 8_14_2016
+            AlazarFreeBuffer(obj.boardHandle, obj.pBuffer);
         end
     end
     
@@ -300,6 +307,14 @@ classdef ATS850DriverPipelined < handle
         %   myProcessedData=obj.processBuffer(FFT, etc) %process data that was just pulled from buffer, then clear the b
         %end loop
  
+        %reloads the library
+        function reloadLibrary(obj)
+            unloadlibrary ATSApi;
+            alazarLoadLibrary();
+            obj.boardHandle=AlazarGetBoardBySystemID(obj.systemID,obj.boardID);
+            obj.configureDefault();
+        end
+        
         function obj = ATS850DriverPipelined(systemId, boardId)
             alazarLoadLibrary();
             assert(isscalar(systemId)&&isnumeric(systemId)&&isscalar(boardId)&&isnumeric(boardId),'boardID and systemID must be numeric scalars!');
@@ -309,8 +324,6 @@ classdef ATS850DriverPipelined < handle
             obj.configureDefault();
             obj.pipelineStatus=0;
         end
-        
-        
         
         %configure the board for default data-taking
         %see manual/examples for what this does
@@ -556,11 +569,12 @@ classdef ATS850DriverPipelined < handle
                 return;
             end
             
-            obj.pBuffer = AlazarAllocBuffer(obj.boardHandle, obj.bytesPerBuffer + 16);
-            if obj.pBuffer == 0
-                obj.fprintf('Error: AlazarAllocBufferU16 %u bytes failed\n', obj.bytesPerBuffer);
-                return
-            end
+            %testing removing this 8_14_2016
+%               obj.pBuffer = AlazarAllocBuffer(obj.boardHandle, obj.bytesPerBuffer + 16);
+%               if obj.pBuffer == 0
+%                   obj.fprintf('Error: AlazarAllocBufferU16 %u bytes failed\n', obj.bytesPerBuffer);
+%                   return
+%               end
         end
         
         %not pipelined
