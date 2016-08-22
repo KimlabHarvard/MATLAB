@@ -262,7 +262,7 @@ classdef Keithley2450 < deviceDrivers.lib.GPIBorEthernet
             assert(isnumeric(value), 'Invalid input');
             %verify source mode is voltage
             mySourceMode=obj.source_mode;
-            assert(strcmp(mySourceMode,'VOLT:DC'),['attempted to set source voltage when source mode is ',mySourceMode]);
+            assert(strcmp(mySourceMode,'VOLT'),['attempted to set source voltage when source mode is ',mySourceMode]);
             obj.write(sprintf('SOUR:VOLT %G;',value));
         end
         
@@ -289,7 +289,7 @@ classdef Keithley2450 < deviceDrivers.lib.GPIBorEthernet
         function val = get.sourceVoltage(obj)
             %verify source mode is voltage
             mySourceMode=obj.source_mode;
-            assert(strcmp(mySourceMode,'VOLT:DC'),['attempted to measure source voltage when source mode is ',mySourceMode]);
+            assert(strcmp(mySourceMode,'VOLT'),['attempted to measure source voltage when source mode is ',mySourceMode]);
             val = str2double(obj.query(':SOUR:VOLT?'));
         end
         
