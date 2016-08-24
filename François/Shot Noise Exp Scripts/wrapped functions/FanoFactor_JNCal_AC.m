@@ -19,7 +19,7 @@ function FanoFactor_JNCal_AC()
     highBiasVoltageList =1e-3*[3 6 11 16 21 26 31 36 41];
     %gateVoltageList=[-1:.05:-.65   -.6:.02:-.4   -.39:.01:-.3   -.28:.02:-.2 -.15:.05:.2 .3:.1:1];
     gateVoltageList=0;
-    tempList=[60 100 150 200 250 300];
+    tempList=[3 8 14];
     lockInTimeConstant=0.3;
     
     resistanceMeasExcitationCurrentACVpp=1e-6; %1 microAmp;
@@ -34,8 +34,8 @@ function FanoFactor_JNCal_AC()
     StartTime = clock;
     FileName = strcat('FanoFactor_', datestr(StartTime, 'yyyymmdd_HHMMSS'),'_',UniqueName,'.mat');
 
-    resistance=1004000;
-    %sampleResistance=16000;
+    resistance1=1004000;
+    resistance2=9936;
     leadResistance=40;
     range=0.04;
     
@@ -121,7 +121,10 @@ function FanoFactor_JNCal_AC()
     data=struct('time',0,'myClock',0,'temp',0,'lowBiasVoltage',0,'lowBiasCurrent',0,'highBiasVoltage',0,'highBiasCurrent',0,...
         'noisePowerLow',0,'noisePowerHigh',0,'noisePowerLowErr',0,'noisePowerHighErr',0,'noiseDerivative',0,'noiseDerivativeErr',0,...
         'midBiasVoltage',0,'midBiasCurrent',0,'T_noise',0,'tempList',0,'gateVoltageList',0,'lowBiasVoltageList',0,'highBiasVoltageList',0,...
-        'resistance',0,'dP_P_by_dT',0,'johnsonNoise',0,'johnsonNoiseErr',0);
+        'resistance',0,'dP_P_by_dT',0,'johnsonNoise',0,'johnsonNoiseErr',0,'differentialResistance',0);
+    
+    data.tempList=tempList;
+    data.gateVoltageList=gateVoltageList;
     
     %initialize everything to NaN so there aren't any zeros when plotting!
     data3D=zeros(length(tempList),length(gateVoltageList),length(lowBiasVoltageList))/0;
@@ -141,6 +144,7 @@ function FanoFactor_JNCal_AC()
     data.noiseDerivativeErr=data3D;
     data.midBiasVoltage=data3D;
     data.midBiasCurrent=data3D;
+    data.differentialResistance=data3D;
     
     data.T_noise=data2D;
     data.resistance=data2D;
@@ -181,7 +185,7 @@ function FanoFactor_JNCal_AC()
     
     drawnow;
     startTime=clock;
-   totalIndex=1;
+    totalIndex=1;
     
 %iterate through the temperatures    
 for i=1:length(tempList)
@@ -230,12 +234,14 @@ for i=1:length(tempList)
         rampToGateVoltage(gateVoltageList(j));
 
         
-        
-        %measure resistance, record it
-        highBiasController.value=resistanceMeasExcitationCurrentACVpp*resistance/2;
-        lowBiasController.value=-resistanceMeasExcitationCurrentACVpp*resistance/2;
+                    
+        %measure zero-bias resistance, record it
+        highBiasController.value=resistanceMeasExcitationCurrentACVpp*(resistance1+resistance2)/2;
+        lowBiasController.value=-resistanceMeasExcitationCurrentACVpp*(resistance1+resistance2)/2;
+        pause(30*lockInTimeConstant);
         myResistance=measureACResistance();
-        data.resistance(i,j)=myResistance;
+        data.resistance(i,j,k)=myResistance;
+        
         
         %measure the johnson noise now
         disp('start measruing johnson noise');
@@ -247,16 +253,31 @@ for i=1:length(tempList)
         
         for k=1:length(lowBiasVoltageList)
 
+
             %measure the AC difference in noise power, then compute the
             %derivative and store all the data
 
             
             fprintf('start meauring AC noise at V_bias=%g\n',(lowBiasVoltageList(k)+lowBiasVoltageList(k))/2);
-
+            
+            acStartTime=clock;
+            %the resistance here is only for setting the bias voltages correctly
             [diff, diffErr, data.noisePowerLow(i,j,k), data.noisePowerLowErr(i,j,k), data.noisePowerHigh(i,j,k), data.noisePowerHighErr(i,j,k)]=...
                 measureAC(lowBiasVoltageList(k),highBiasVoltageList(k),numberOfSamples,numberOfAverages,numberOfACCycles,myResistance);
-            data.noiseDerivative(i,j,k)=diff/(highBiasVoltageList(k)-lowBiasVoltageList(k));
-            data.noiseDerivativeErr(i,j,k)=diffErr/(highBiasVoltageList(k)-lowBiasVoltageList(k));
+            
+            %now that we have been measuring the AC resistance for some time, we will measure the differential resistance
+            
+            timeLeftToWait=30*lockInTimeConstant-etime(clock,acStartTime);
+            if(timeLeftToWait>0)
+                disp('waiting for lock-ins to stabilize. yo should instead use this time to take more noise measurements\n');
+                pause(timeLeftToWait);
+            end
+            
+            myDifferentialResistance=measureACResistance();
+            data.differentialResistance=myDifferentialResistance;
+            
+            data.noiseDerivative(i,j,k)=diff/(highBiasVoltageList(k)-lowBiasVoltageList(k))*myDifferentialResistance/myResistance;
+            data.noiseDerivativeErr(i,j,k)=diffErr/(highBiasVoltageList(k)-lowBiasVoltageList(k))*myDifferentialResistance/myResistance;
             data.midBiasVoltage(i,j,k)=(lowBiasVoltageList(k)+highBiasVoltageList(k))/2;
             data.midBiasCurrent(i,j,k)=(lowBiasVoltageList(k)+highBiasVoltageList(k))/2/myResistance;
             
@@ -369,8 +390,8 @@ end %end temp for loop
         highNoiseArray=zeros(1,numCycles);
         
         %set up the square wave current source to correct amplitudes
-        lowBiasController.value=lowBiasV*(sampleResistance+resistance)/sampleResistance;
-        highBiasController.value=highBiasV*(sampleResistance+resistance)/sampleResistance;
+        lowBiasController.value=lowBiasV*(sampleResistance+resistance1+resistance2)/sampleResistance;
+        highBiasController.value=highBiasV*(sampleResistance+resistance1+resistance2)/sampleResistance;
         
         %set current to low, measure, then to high, and measure, and repeat
 
@@ -389,67 +410,32 @@ end %end temp for loop
         %digitizerCard.pipeline_startSpectralPipeline();
         
         [lowNoiseArray(1),~,aDataForHist,rawSamples]=digitizerCard.acquireTotalAvgVoltagePowerWithSpectralMask(fftMask, fftMask, 'A'+'B');
-%         change_to_figure(17);
-%             plot(rawSamples);
-%             drawnow;
         %if the data is the incorrect type (wrong polarity) take it again to get the right polarity
         while(rawSamples(1000)<1)
             [lowNoiseArray(1),~,aDataForHist,rawSamples]=digitizerCard.acquireTotalAvgVoltagePowerWithSpectralMask(fftMask, fftMask, 'A'+'B');
-%             change_to_figure(17);
-%             plot(rawSamples);
-%             drawnow;
         end
         change_to_figure(1992);
         hist(aDataForHist/range*127.5+127.5,(1:256));
         xlabel('bit bins');
         ylabel('counts');
         
-        %missed=0;
-        
         drawnow;        
         for m=1:numCycles   %can get this down to about 83 msec for A and B
-            %if(rem(m,1000)==0)
-            %tic
-            %end
             
             [highNoiseArray(m),~,~,rawSamples]=digitizerCard.acquireTotalAvgVoltagePowerWithSpectralMask(fftMask, fftMask, 'A'+'B');
-%             change_to_figure(17);
-%             plot(rawSamples);
-%             drawnow;
             %if the data is the incorrect type (wrong polarity) take it again to get the right polarity 
             while(rawSamples(1000)>4) %TODO: find the right value here
                 fprintf('freq too high %g\n',m);
                 [highNoiseArray(m),~,~,rawSamples]=digitizerCard.acquireTotalAvgVoltagePowerWithSpectralMask(fftMask, fftMask, 'A'+'B');
-%                 change_to_figure(17);
-%             plot(rawSamples);
-%             drawnow;
-            %    missed=1;
             end
 
             [lowNoiseArray(m+1),~,~,rawSamples]=digitizerCard.acquireTotalAvgVoltagePowerWithSpectralMask(fftMask, fftMask, 'A'+'B');
-%             change_to_figure(17);
-%             plot(rawSamples);
-%             drawnow;
+
             %if the data is the incorrect type (wrong polarity) take it again to get the right polarity
             while(rawSamples(1000)<1) %TODO: find the right value here
                 fprintf('freq too high %g\n',m);
                 [lowNoiseArray(m+1),~,~,rawSamples]=digitizerCard.acquireTotalAvgVoltagePowerWithSpectralMask(fftMask, fftMask, 'A'+'B');
-%                 change_to_figure(17);
-%             plot(rawSamples);
-%             drawnow;
-            %    missed=1;
             end
-            
-            %if(rem(m,5000)==0)
-            %toc
-            %fprintf('measuring %e to %e nanoAmps, iteration %d of %d\n, at %f gate voltage, at %f Kelvin',currentList(k,1),currentList(k,2),m,numCycles,gateVoltageList(m),tempList(i));
-            %end
-            
-            %if(missed)
-            %    decreasefrequency(.01);
-            %end
-            
-        %toc
         end
                 
         %calcuate the differences going up in current and going down in current
@@ -466,8 +452,8 @@ end %end temp for loop
     end
 
     function [noisePower, noisePowerErr] = measureDC(biasV,numSamples,numAvg,numCycles,sampleResistance)
-        lowBiasController.value=biasV*(sampleResistance+resistance)/sampleResistance;
-        highBiasController.value=biasV*(sampleResistance+resistance)/sampleResistance;
+        lowBiasController.value=biasV*(sampleResistance+resistance1+resistance2)/sampleResistance;
+        highBiasController.value=biasV*(sampleResistance+resistance1+resistance2)/sampleResistance;
         digitizerCard.setSizeSpectralVoltagePower(numSamples,numAvg);
         digitizerCard.setTriggerDelay(0);
         digitizerCard.setTriggerTimeout(1); %collect data with no delay
@@ -551,12 +537,11 @@ end %end temp for loop
     end
 
     function res=measureACResistance()
-        pause(30*lockInTimeConstant);
         topLockIn.autoSens();
         bottomLockIn.autoSens();
         topVoltage=topLockIn.R;
         bottomVoltage=bottomLockIn.R;
-        res=resistance*bottomVoltage/(topVoltage-bottomVoltage)-leadResistance;
+        res=resistance2*bottomVoltage/(topVoltage-bottomVoltage)-leadResistance;
     end
 
     function rampToGateVoltage(v)
