@@ -20,11 +20,11 @@ function DC_noise_measurement()
     StartTime = clock;
     FileName = strcat('Tlog_', datestr(StartTime, 'yyyymmdd_HHMMSS'),'_',UniqueName,'.mat');
 
-    resistance=10530000;
-    sampleResistance=15059;
+    resistance=1004000;
+    %sampleResistance=15059;
     range=0.2;
     
-    digitizerCard = deviceDrivers.ATS850Driver(1,1);
+    digitizerCard = deviceDrivers.ATS850DriverPipelined(1,1);
     %digitizerCard.setTriggerDelay(50000); %1ms delay time
     digitizerCard.setTriggerTimeout(0); %infinite timeout
     digitizerCard.configureChannel('A', 'AC', range, 50);
