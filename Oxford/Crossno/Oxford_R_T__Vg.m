@@ -32,7 +32,8 @@ function data = Oxford_R_T__Vg(Vg_list, SD_Vex, Nmeasurements, VWaitTime1, VWait
             [data.raw.Vsd_X(i,n), data.raw.Vsd_Y(i,n)] = SD.snapXY();
             data.raw.R(i,n) = ...
                 sqrt(data.raw.Vsd_X(i,n)^2+data.raw.Vsd_Y(i,n)^2)*SD_Rex/SD_Vex;
-            
+            data.raw.Tvapor(i,n) = TC.temperatureA;
+            data.raw.Tprobe(i,n) = TC.temperatureb;
             %check if we are between 5% and 95% of the range, if not autoSens
             high = max(data.raw.Vsd_X(i,n),data.raw.Vsd_Y(i,n));
             if high > SD_sens*0.95 || high < SD_sens*0.05
@@ -47,9 +48,13 @@ function data = Oxford_R_T__Vg(Vg_list, SD_Vex, Nmeasurements, VWaitTime1, VWait
         data.Vsd_X(i) = mean(data.raw.Vsd_X(i,:));
         data.Vsd_Y(i) = mean(data.raw.Vsd_Y(i,:));
         data.R(i) = mean(data.raw.R(i,:));
+        data.Tvapor = mean(data.raw.Tvapor(i,:));
+        data.Tprobe = mean(data.raw.Tprobe(i,:));
         data.std.Vsd_X(i) = std(data.raw.Vsd_X(i,:));
         data.std.Vsd_Y(i) = std(data.raw.Vsd_Y(i,:));
         data.std.R(i) = std(data.raw.R(i,:));
+        data.Tvapor = std(data.raw.Tvapor(i,:));
+        data.Tprobe = std(data.raw.Tprobe(i,:));
     end
 
     function save_data()
@@ -58,7 +63,7 @@ function data = Oxford_R_T__Vg(Vg_list, SD_Vex, Nmeasurements, VWaitTime1, VWait
 
 
 %saftey checks (more checks below)
-if max(abs(Vg_list)) <= Vg_limit
+if max(abs(Vg_list)) >= Vg_limit
     error('Gate voltage set above limit,exiting');
 end
 
@@ -87,12 +92,13 @@ VG = deviceDrivers.YokoGS200();
 VG.connect('18')
 
 %initialize the gate
-if Vg_limit <= 1
+if Vg_limit <= 1.2
     VG.range = 1;
-elseif Vg_limit <=10
+elseif Vg_limit <=12
     VG.range = 10;
 else
     VG.range = 30;
+end
 currentVg = Vg_list(1);
 VG.ramp2V(currentVg,Vg_rampRate);
 
