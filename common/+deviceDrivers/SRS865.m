@@ -24,7 +24,11 @@ classdef (Sealed) SRS865 < deviceDrivers.lib.GPIB
         inputCoupling % 'AC' or 'DC'
         sineAmp % output amplitude of the sin output (0.004 to 5.000V)
         sineFreq % reference frequency (Hz)
+        intFreq % internal frequency (Hz) 
         DC % DC voltage offset for the sine output
+        sens 
+        harm %1...99
+        refsource %int,ext,dual,chop
     end
 
     properties (SetAccess=private)
@@ -40,10 +44,27 @@ classdef (Sealed) SRS865 < deviceDrivers.lib.GPIB
         timeConstantMap = containers.Map(num2cell(0:21), num2cell(kron(10.^(-6:4), [1, 3])));
         inputCouplingMap = containers.Map({'AC', 'DC'}, {uint32(0), uint32(1)});
         scanIntervalMap = containers.Map(num2cell(0:16), {.008, .016, .031, .078, .155, .469, .938, 1.875, 4.688, 9.375, 28.12, 56.25, 112.5, 337, 675, 1350, 2700});
+        sensMap = containers.Map({1,5e-1,2e-1,1e-1,5e-2,2e-2,1e-2,5e-3,2e-3,1e-3,5e-4,2e-4,1e-4,5e-5,2e-5,1e-5,...
+            5e-6,2e-6,1e-6,5e-7,2e-7,1e-7,5e-8,2e-8,1e-8,5e-9,2e-9,1e-9},num2cell(0:27));
     end
     
     methods
         function obj = SRS865()
+        end
+        
+        function val = get.sens(obj)
+            inverseMap = invertMap(obj.sensMap);
+
+            dbl=str2double(obj.query('SCAL?'));
+            while isempty(dbl)
+                dbl=str2double(obj.query('SCAL?'));
+            end
+
+            val = inverseMap(dbl);
+        end
+        function obj = set.sens(obj, value)
+            assert(isKey(obj.sensMap, value),'sensitivity must be 1, 2, or 5 times some power -9 to 0')
+            obj.write('SCAL %E', obj.sensMap(value));
         end
         
         %Filter time constant
@@ -72,8 +93,17 @@ classdef (Sealed) SRS865 < deviceDrivers.lib.GPIB
             val = str2double(obj.query('FREQ?'));
         end
         function obj = set.sineFreq(obj, value)
-            assert(isnumeric(value) && (value >= 0.001) && (value <= 2000000), 'Oops! The reference frequency must be between 1 mHz and 2 MHz');
+            assert(isnumeric(value) && (value >= 0.001) && (value <= 2500000), 'Oops! The reference frequency must be between 1 mHz and 2.5 MHz');
             obj.write('FREQ %E',value);
+        end
+        
+        %Internal frequency
+        function val = get.intFreq(obj)
+            val = str2double(obj.query('FREQINT?'));
+        end
+        function obj = set.intFreq(obj, value)
+            assert(isnumeric(value) && (value >= 0.001) && (value <= 2500000), 'Oops! The internal frequency must be between 1 mHz and 2.5 MHz');
+            obj.write('FREQINT %E',value);
         end
         
         %Sine output amplitude
@@ -94,6 +124,25 @@ classdef (Sealed) SRS865 < deviceDrivers.lib.GPIB
             obj.write('SOFF %E',value);
         end
         
+        %Harmonic
+        function val = get.harm(obj)
+            val = str2double(obj.query('HARM?'));
+        end
+        function obj = set.harm(obj, value)
+            assert(ceil(value) == floor(value) && (value >= 1) && (value <= 99), 'Oops! The reference harmonic must be an integer = 1...99');
+            obj.write('HARM %E',value);
+        end
+        
+        %Ref source 0=internal, 1=external, 2=dual, 3=chop
+        function val = get.refsource(obj)
+            val = str2double(obj.query('RSRC?'));
+        end
+        function obj = set.refsource(obj, value)
+            assert(ceil(value) == floor(value) && (value >= 0) && (value <= 3), 'Oops! The reference source must be an integer = 0...3');
+            obj.write('RSRC %E',value);
+        end
+        
+        
         %Getter for X and Y at the same point in time
         function [X, Y] = get_XY(obj)
             values = textscan(obj.query('SNAP? 0,1'), '%f', 'Delimiter', ',');
@@ -102,10 +151,17 @@ classdef (Sealed) SRS865 < deviceDrivers.lib.GPIB
         end
         
         %Getter for R and theta at the same point in time
-        function [R, theta] = get_Rtheta(obj)
-            values = textscan(obj.query('SNAP? 2,3'), '%f', 'Delimiter', ',');
-            R = values{1}(1);
-            theta = values{1}(2);
+        function [R, theta] = snapRtheta(obj)
+            str = obj.query('SNAP? 2,3');
+            while isempty(str)
+                str = obj.query('SNAP? 2,3');
+            end
+            commaPos = strfind(str,',');
+            R = str2double(str(1:commaPos));
+            theta = str2double(str(commaPos:end));
+%             values = textscan(obj.query('SNAP? 2,3'), '%f', 'Delimiter', ',');
+%             R = values{1}(1);
+%             theta = values{1}(2);
         end
         
         %Getter for X and Y Noise at the same point in time
@@ -186,6 +242,15 @@ classdef (Sealed) SRS865 < deviceDrivers.lib.GPIB
         
         function clrbuff(obj)
            obj.write('SDC'); 
+        end
+        
+        function decreaseSens(obj)
+            sens_number = str2double(obj.query('SCAL?'));
+            obj.write('SCAL %E', sens_number-1);
+        end
+        function increaseSens(obj)
+            sens_number = str2double(obj.query('SCAL?'));
+            obj.write('SCAL %E', sens_number+1);
         end
         
     end
