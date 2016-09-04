@@ -1,7 +1,7 @@
 function h = createPauseButton
 h = figure;
 set(h,'MenuBar','none','Units','Normalized');
-set(h,'Position',[0.5 0.5 0.05 0.05]);
+set(h,'Position',[0.0 0.7 0.05 0.05]);
 uicontrol(... % Button for updating selected plot
     'Parent', h, ...
     'Units','normalized',...

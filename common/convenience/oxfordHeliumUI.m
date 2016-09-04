@@ -1,7 +1,7 @@
 function h = oxfordHeliumUI
     h = figure;
     set(h,'MenuBar','none','Units','Normalized');
-    set(h,'Position',[0.5 0.5 0.18 0.16]);
+    set(h,'Position',[0.0 0.8 0.18 0.16]);
     
     btn = uicontrol(... % Button for updating selected plot
         'Parent', h, ...

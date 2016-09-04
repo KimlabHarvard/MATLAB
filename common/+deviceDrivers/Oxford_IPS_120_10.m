@@ -17,7 +17,7 @@ classdef (Sealed) Oxford_IPS_120_10 < deviceDrivers.lib.GPIB
         status  %15 char string representing system status
         measuredCurrent % read the actual current
         measuredField % read the actual voltage
-        
+        persistentField % read persistent field value
     end
     
     
@@ -58,6 +58,12 @@ classdef (Sealed) Oxford_IPS_120_10 < deviceDrivers.lib.GPIB
             val = obj.query('R8');
             val = str2double(val(2:end));
         end
+        
+         function val = get.persistentField(obj)
+            val = obj.query('R18');
+            val = str2double(val(2:end));
+        end
+        
         function val = get.switchHeater(obj)
             state = obj.status();
             if state(9)==0 || state(9)==2

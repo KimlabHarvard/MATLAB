@@ -108,8 +108,9 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
              i=1;
              pause on;
              while isempty(Xstr)
+                 pause(2);
                 Xstr = obj.query('Calc:X?');
-                if i==20
+                if i==3
                     break
                 end
                 pause(1)

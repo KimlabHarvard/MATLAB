@@ -41,14 +41,14 @@ classdef (Sealed) Lakeshore335 < deviceDrivers.lib.deviceDriverBase & deviceDriv
         end
 		function set.setPoint1(obj, val)
             assert(isnumeric(val),'set point must be numeric')
-			obj.write(sprintf('SETP 1,%d', val));
+			obj.write(sprintf('SETP 1,%f', val));
         end
         function val = get.setPoint2(obj)
 			val = str2double(obj.query('SETP? 2'));
         end
         function set.setPoint2(obj, val)
             assert(isnumeric(val),'set point must be numeric')
-			obj.write(sprintf('SETP 2,%d', val));
+			obj.write(sprintf('SETP 2,%f', val));
         end
 
         %Get and receive PID setting

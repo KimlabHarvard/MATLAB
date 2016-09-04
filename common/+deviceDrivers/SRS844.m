@@ -1,6 +1,8 @@
-% CLASS SRS830 - Instrument driver for the SRS 830 lock-in
+% CLASS SRS844 - Instrument driver for the SRS 844 lock-in
 
 % Author: Colm Ryan (colm.ryan@bbn.com)
+% Modified from SR830 driver by Jonah Waissman, Kim Group, Harvard Univ.,
+% 6/2016
 
 % Copyright 2013 Raytheon BBN Technologies
 %
@@ -16,13 +18,16 @@
 % See the License for the specific language governing permissions and
 % limitations under the License.
 
-classdef (Sealed) SRS830 < deviceDrivers.lib.GPIB
+classdef (Sealed) SRS844 < deviceDrivers.lib.GPIB
     
     properties
         timeConstant % time constant for the filter in seconds
-        inputCoupling % 'AC' or 'DC'
+        inputImpedance % '50' or '1M'
+        refMode % 'external' or 'internal'
+        twoFMode % 'off' or 'on'
         sinePhase % output phase in deg
-        sineAmp % output amplitude of the sin output (0.004 to 5.000V)
+%         sineAmp % RF Lockin has fixed internal reference amplitude;
+%         external amplitude fixed in separate driver
         sineFreq % reference frequency (Hz)
         bufferRate % if using buffer, rate in Hz to record data
         bufferMode %'loop' reads continuously, 'shot' reads until full.
@@ -37,31 +42,35 @@ classdef (Sealed) SRS830 < deviceDrivers.lib.GPIB
         bufferPoints %number of data points currently stored in buffer
     end
     
-    properties(Constant)
-        timeConstantMap = containers.Map(num2cell(0:19), num2cell(kron(10.^(-6:3), [10, 30])));
-        inputCouplingMap = containers.Map({'AC', 'DC'}, {0,1});%uint32(0), uint32(1)});
+    properties(Constant) %see page 4-2 of 844 manual for commands
+        timeConstantMap = containers.Map(num2cell(0:17), num2cell(kron(10.^(-6:2), [100, 300])));
+        % 844 does not choose 
+%         inputCouplingMap = containers.Map({'AC', 'DC'}, {0,1});%uint32(0), uint32(1)});
+        inputImpedanceMap = containers.Map({'50', '1M'}, {0,1});
+        refModeMap = containers.Map({'external', 'internal'}, {0,1});
+        twoFModeMap = containers.Map({'off', 'on'}, {0,1});
         bufferRateMap = containers.Map(num2cell(2.^(-4:9)),num2cell(0:13))
         bufferModeMap = containers.Map({'loop','LOOP','Loop','shot','SHOT','Shot'},{1,1,1,0,0,0})
-        sensMap = containers.Map({2E-9,5E-9,1E-8,2E-8,5E-8,1E-7,2E-7,5E-7,1E-6,...
-            2E-6,5E-6,1E-5,2E-5,5E-5,1E-4,2E-4,5E-4,1E-3,2E-3,5E-3,1E-2, ...
-            2E-2,5E-2,1E-1,2E-1,5E-1,1},num2cell(0:26))
+        sensMap = containers.Map({100E-9,300E-9,100E-8,300E-8,100E-7,300E-7,...
+            100E-6,300E-6,100E-5,300E-5,100E-4,300E-4,100E-3,300E-3, ...
+            1},num2cell(0:14))
     end
     
     methods
         
-        %Filter time constant
+        %Sensitivity
         function val = get.sens(obj)
             inverseMap = invertMap(obj.sensMap);
             val = inverseMap(str2double(obj.query('SENS?')));
         end
         function obj = set.sens(obj, value)
-            assert(isKey(obj.sensMap, value),'sensitivity must be 2, 5, or 10 times some power -9 to -1')
+            assert(isKey(obj.sensMap, value),'sensitivity must be 1 or 3 times some power -7 to 0')
             obj.write('SENS %E', obj.sensMap(value));
         end
         
         %Filter time constant
         function val = get.timeConstant(obj)
-            val = obj.timeConstantMap(uint32(str2double(obj.query('OFLT?'))));
+            val = obj.timeConstantMap(str2double(obj.query('OFLT?'))); %uint32(
         end
         function obj = set.timeConstant(obj, value)
             inverseMap = invertMap(obj.timeConstantMap);
@@ -133,45 +142,79 @@ classdef (Sealed) SRS830 < deviceDrivers.lib.GPIB
             obj.write('PHAS %E',value);
         end
         
-        %Input coupling
-        function val = get.inputCoupling(obj)
-            inverseMap = invertMap(obj.inputCouplingMap);
-            val = inverseMap(uint32(obj.query('ICPL?')));
+        %Input coupling replaced by input impedance (below)
+%         %Input coupling
+%         function val = get.inputCoupling(obj)
+%             inverseMap = invertMap(obj.inputCouplingMap);
+%             val = inverseMap(uint32(obj.query('ICPL?')));
+%         end
+%         function obj = set.inputCoupling(obj, value)
+%             assert(isKey(obj.inputCouplingMap, value), 'Oops! the input coupling must be one of "AC" or "DC"');
+%             obj.write('ICPL %d', obj.inputCouplingMap(value));
+%         end
+        
+        %Input impedance
+        function val = get.inputImpedance(obj)
+            inverseMap = invertMap(obj.inputImpedanceMap);
+            val = inverseMap(str2num(obj.query('INPZ?'))); %uint32(
         end
-        function obj = set.inputCoupling(obj, value)
-            assert(isKey(obj.inputCouplingMap, value), 'Oops! the input coupling must be one of "AC" or "DC"');
-            obj.write('ICPL %d', obj.inputCouplingMap(value));
+        function obj = set.inputImpedance(obj, value)
+            assert(isKey(obj.inputImpedanceMap, value), 'Oops! the input impedance must be one of "50" or "1M"');
+            obj.write('INPZ %d', obj.inputImpedanceMap(value));
         end
         
-        %Reference frequency
+        %Reference mode
+        function val = get.refMode(obj)
+            inverseMap = invertMap(obj.refModeMap);
+            val = inverseMap(str2num(obj.query('FMOD?'))); %uint32(
+        end
+        function obj = set.refMode(obj, value)
+            assert(isKey(obj.refModeMap, value), 'Oops! the reference mode must be one of "external" or "internal"');
+            obj.write('FMOD %d', obj.refModeMap(value));
+        end
+        
+        %Reference frequency (note that internal ref is a square wave)
         function val = get.sineFreq(obj)
             val = str2double(obj.query('FREQ?'));
         end
         function obj = set.sineFreq(obj, value)
-            assert(isnumeric(value) && (value >= 0.0001) && (value <= 102000), 'Oops! The reference frequency must be between 0.0001Hz and 102kHz');
+%              assert(get, 'Oops! The reference mode must be internal to set the frequency');
+            assert(isnumeric(value) && (value >= 25000) && (value <= 200000000), 'Oops! The reference frequency must be between 25kHz and 200MHz');
             obj.write('FREQ %E',value);
         end
         
-        %Sine output amplitude
-        function val = get.sineAmp(obj)
-            val = str2double(obj.query('SLVL?'));
+         %Harmonic 2f detection
+        function val = get.twoFMode(obj)
+            inverseMap = invertMap(obj.twoFModeMap);
+            val = inverseMap(str2num(obj.query('HARM?'))); %uint32(
         end
-        function obj = set.sineAmp(obj, value)
-            assert(isnumeric(value) && (value >= 0.004) && (value <= 5.000), 'Oops! The sine amplitude must be between 0.004V and 5V');
-            obj.write('SLVL %E',value);
+        function obj = set.twoFMode(obj, value)
+            assert(isKey(obj.twoFModeMap, value), 'Oops! the twoF mode must be one of "off" or "on"');
+            obj.write('HARM %d', obj.twoFModeMap(value));
         end
-        function ramp2V(obj,Vset)
-            CurrentV = str2double(obj.query('SLVL?'));
-            DeltaV = Vset-CurrentV;
-            %if the difference is greater than 1mv, ramp slowly
-            if abs(DeltaV)>0.001
-                for j=1:floor(abs(DeltaV*1000))                   
-                    CurrentV=CurrentV+0.001*sign(DeltaV);
-                    obj.write('SLVL %E',CurrentV);
-                end
-            end
-            obj.write('SLVL %E',Vset);
-        end
+        
+        % RF Lockin has fixed internal reference amplitude (external
+        % reference needs separate driver)
+%         %Sine output amplitude
+%         function val = get.sineAmp(obj)
+%             val = str2double(obj.query('SLVL?'));
+%         end
+%         function obj = set.sineAmp(obj, value)
+%             assert(isnumeric(value) && (value >= 0.004) && (value <= 5.000), 'Oops! The sine amplitude must be between 0.004V and 5V');
+%             obj.write('SLVL %E',value);
+%         end
+%         function ramp2V(obj,Vset)
+%             CurrentV = str2double(obj.query('SLVL?'));
+%             DeltaV = Vset-CurrentV;
+%             %if the difference is greater than 1mv, ramp slowly
+%             if abs(DeltaV)>0.001
+%                 for j=1:floor(abs(DeltaV*1000))                   
+%                     CurrentV=CurrentV+0.001*sign(DeltaV);
+%                     obj.write('SLVL %E',CurrentV);
+%                 end
+%             end
+%             obj.write('SLVL %E',Vset);
+%         end
         
         function [X,Y] = snapXY(obj)
             str = obj.query('SNAP?1,2');
@@ -180,8 +223,8 @@ classdef (Sealed) SRS830 < deviceDrivers.lib.GPIB
             Y = str2double(str(commaPos:end));
         end
         
-        function [R,theta] = snapRtheta(obj)
-            str = obj.query('SNAP?3,4');
+        function [R,theta] = snapRtheta(obj) %R in V = 3, for dBm use 4 (pg.4-25 of manual)
+            str = obj.query('SNAP?3,5');
             commaPos = strfind(str,',');
             R = str2double(str(1:commaPos));
             theta = str2double(str(commaPos:end));
@@ -189,7 +232,7 @@ classdef (Sealed) SRS830 < deviceDrivers.lib.GPIB
         
         %Getter for the current signal level in any flavour
         function [X, Y, R, theta] = get_signal(obj)
-            values = textscan(obj.query('SNAP ? 1,2,3,4'), '%f', 'Delimiter', ',');
+            values = textscan(obj.query('SNAP ? 1,2,3,5'), '%f', 'Delimiter', ',');
             X = values{1}(1);
             Y = values{1}(2);
             R = values{1}(3);

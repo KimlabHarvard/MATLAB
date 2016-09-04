@@ -68,10 +68,18 @@ classdef (Sealed) YokoGS200 < deviceDrivers.lib.deviceDriverBase & deviceDrivers
             CurrentV = str2double(obj.query(':SOURCE:LEVEL?'));
             DeltaV = Vset-CurrentV;
             %if the difference is greater than 1mv, ramp slowly
-            if abs(DeltaV)>1
-                for j=1:floor(abs(DeltaV*10))                   
-                    CurrentV=CurrentV+0.1*sign(DeltaV);
-                    obj.write(sprintf(':SOURCE:LEVEL %d', CurrentV));
+            stepsPerVolt=40;
+            waitTime=0.5;
+            if abs(DeltaV)>1e-3
+                for j=1:floor(abs(DeltaV*stepsPerVolt))                   
+                    CurrentV=CurrentV+DeltaV/stepsPerVolt;
+                    curDeltaV = Vset-CurrentV;
+                    if abs(curDeltaV) > 1/stepsPerVolt
+                        obj.write(sprintf(':SOURCE:LEVEL %d', CurrentV));
+                    else
+                        break 
+                    end
+                    pause(waitTime); 
                 end
             end
             obj.write(sprintf(':SOURCE:LEVEL %d', Vset));
