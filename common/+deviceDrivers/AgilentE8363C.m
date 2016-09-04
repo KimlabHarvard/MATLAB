@@ -1,10 +1,10 @@
 classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
-%AGILENTE8363C
-%
-%
-% Author(s): rhiltner with generate_driver.py
-% Generated on: Fri Oct 16 11:37:54 2009
-
+    %AGILENTE8363C
+    %
+    %
+    % Author(s): rhiltner with generate_driver.py
+    % Generated on: Fri Oct 16 11:37:54 2009
+    
     % Device properties correspond to instrument parameters
     properties (Access = public)
         sweep_data;
@@ -32,8 +32,8 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
         trigger_source;		% Values: ['external', 'immediate', 'manual']
         frequency;          % frequency, for use in CW mode
     end % end device properties
-
-
+    
+    
     methods (Access = public)
         function obj = AgilentE8363C()
             %AGILENTE8363C constructor
@@ -44,18 +44,18 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
         end
         % Instrument-specific methods
         function clear(obj)
-        %CLEAR
+            %CLEAR
             gpib_string = '*CLS';
             obj.write(gpib_string);
         end
-
+        
         function wait(obj)
-        %WAIT
+            %WAIT
             gpib_string = '*WAI';
             obj.write(gpib_string);
         end
         function abort(obj)
-        %ABORT
+            %ABORT
             gpib_string = ':ABORt';
             obj.write(gpib_string);
         end
@@ -88,7 +88,7 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
                 meas_string = measurement(commaPos(2*i-1)+1:commaPos(2*i)-1);
                 obj.select_measurement = meas_string;
                 traces(:,i+1) = obj.sweep_data;
-            end 
+            end
         end
         
         function trace = getSingleTrace(obj,trace_number)
@@ -102,19 +102,20 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
             obj.select_measurement = measurement(commaPos(2*trace_number-1)+1:commaPos(2*trace_number)-1);
             trace = obj.sweep_data;
         end
-            
+        
         function Xdata = getX(obj)
-             Xstr=[];
-             i=1;
-             pause on;
-             while isempty(Xstr)
-                Xstr = obj.query('Calc:X?');
+            Xstr=[];
+            i=1;
+            pause on;
+            Xstr = obj.query('SENS:X?');
+            while isempty(Xstr)
+                pause(1)
+                Xstr = obj.query('SENS:X?');
                 if i==20
                     break
                 end
-                pause(1)
                 i=i+1;
-             end
+            end
             %split x data into array
             p = strfind(Xstr, ',');
             Xdata = zeros(length(p)+1,1);
@@ -136,24 +137,24 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
             obj.block_for_averaging();
         end
         function marker1_search(obj, value)
-        %MARKER1_SEARCH
+            %MARKER1_SEARCH
             gpib_string = ':CALCulate:MARKer1:FUNCtion:EXECute';
             % Validate input
             checkMapObj = containers.Map({'compression','lpeak','ltarget','maximum','minimum','npeak','rpeak','rtarget','target'},{'COMPression','LPEak','LTARget','MAXimum','MINimum','NPEak','RPEak','RTARget','TARGet'});
             if not (checkMapObj.isKey(value))
                 error('Invalid input');
             end
-
+            
             gpib_string = [gpib_string ' ' checkMapObj(value)];
             obj.write(gpib_string);
         end
         function markers_off(obj)
-        %MARKERS_OFF
+            %MARKERS_OFF
             gpib_string = ':CALCulate:MARKer:AOFF';
             obj.write(gpib_string);
         end
         function define_measurement(obj, valuea, valueb)
-        %DEFINE_MEASUREMENT
+            %DEFINE_MEASUREMENT
             gpib_string = ':CALCulate:PARameter:DEFine:EXTended';
             % Validate input
             check_vala = class(valuea);
@@ -161,23 +162,23 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
             if not (checkMapObja.isKey(check_vala))
                 error('Invalid input');
             end
-
+            
             check_valb = class(valueb);
             checkMapObjb = containers.Map({'char'},{1});
             if not (checkMapObjb.isKey(check_valb))
                 error('Invalid input');
             end
-
+            
             gpib_string = [gpib_string ' ' valuea ',' valueb];
             obj.write(gpib_string);
         end
         function delete_all_measurements(obj)
-        %DELETE_ALL_MEASUREMENTS
+            %DELETE_ALL_MEASUREMENTS
             gpib_string = ':CALCulate:PARameter:DELete:ALL';
             obj.write(gpib_string);
         end
         function delete_measurement(obj, value)
-        %DELETE_MEASUREMENT
+            %DELETE_MEASUREMENT
             gpib_string = ':CALCulate:PARameter:DELete:NAME';
             % Validate input
             check_val = class(value);
@@ -185,23 +186,23 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
             if not (checkMapObj.isKey(check_val))
                 error('Invalid input');
             end
-
+            
             gpib_string = [gpib_string ' ' value];
             obj.write(gpib_string);
         end
         function send_trigger(obj)
-        %SEND_TRIGGER
+            %SEND_TRIGGER
             gpib_string = ':INITiate:IMMediate';
             obj.write(gpib_string);
         end
         function average_clear(obj)
-        %AVERAGE_CLEAR
+            %AVERAGE_CLEAR
             gpib_string = ':SENSe1:AVERage:CLEar';
             obj.write(gpib_string);
         end
         
         function block_for_averaging(obj)
-        %BLOCK_FOR_AVERAGING blocks until averaging is complete
+            %BLOCK_FOR_AVERAGING blocks until averaging is complete
             while 1
                 status = str2double(obj.averaging_complete);
                 if status ~= 0
@@ -219,7 +220,7 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
         end
         
     end % end methods
-
+    
     methods % Instrument parameter accessors
         function val = get.sweep_data(obj)
             gpib_string = ':CALCulate:DATA';
@@ -315,7 +316,7 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
             gpib_string = 'SENS:FREQ';
             val = obj.query([gpib_string '?']);
         end
-
+        
         function obj = set.marker1_state(obj, value)
             gpib_string = ':CALCulate:MARKer1:STATe';
             
@@ -324,7 +325,7 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
             if not (checkMapObj.isKey(value))
                 error('Invalid input');
             end
-
+            
             gpib_string = [gpib_string ' ' checkMapObj(value)];
             obj.write(gpib_string);
             obj.marker1_state = value;
@@ -338,7 +339,7 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
             if not (checkMapObj.isKey(check_val))
                 error('Invalid input');
             end
-
+            
             gpib_string = [gpib_string ' ' num2str(value)];
             obj.write(gpib_string);
             obj.marker1_x = value;
@@ -351,7 +352,7 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
             if not (checkMapObj.isKey(value))
                 error('Invalid input');
             end
-
+            
             gpib_string = [gpib_string ' ' checkMapObj(value)];
             obj.write(gpib_string);
             obj.marker2_state = value;
@@ -365,7 +366,7 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
             if not (checkMapObj.isKey(check_val))
                 error('Invalid input');
             end
-
+            
             gpib_string = [gpib_string ' ' num2str(value)];
             obj.write(gpib_string);
             obj.marker2_x = value;
@@ -379,10 +380,10 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
             if not (checkMapObj.isKey(check_val))
                 error('Invalid input');
             end
-
+            
             gpib_string = [gpib_string ' ' value];
             obj.write(gpib_string);
-%             obj.select_measurement = value;
+            %             obj.select_measurement = value;
         end
         function obj = set.trace_source(obj, value)
             gpib_string = ':DISPlay:WINDow1:TRACe1:FEED';
@@ -393,7 +394,7 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
             if not (checkMapObj.isKey(check_val))
                 error('Invalid input');
             end
-
+            
             gpib_string = [gpib_string ' ' num2str(value)];
             obj.write(gpib_string);
             obj.trace_source = value;
@@ -406,7 +407,7 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
             if not (checkMapObj.isKey(value))
                 error('Invalid input');
             end
-
+            
             gpib_string = [gpib_string ' ' checkMapObj(value)];
             obj.write(gpib_string);
             obj.output = value;
@@ -420,7 +421,7 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
             if not (checkMapObj.isKey(check_val))
                 error('Invalid input');
             end
-
+            
             gpib_string = [gpib_string ' ' num2str(value)];
             obj.write(gpib_string);
             obj.average_counts = value;
@@ -433,7 +434,7 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
             if not (checkMapObj.isKey(value))
                 error('Invalid input');
             end
-
+            
             gpib_string = [gpib_string ' ' checkMapObj(value)];
             obj.write(gpib_string);
             obj.averaging = value;
@@ -447,7 +448,7 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
             if not (checkMapObj.isKey(check_val))
                 error('Invalid input');
             end
-
+            
             gpib_string = [gpib_string ' ' num2str(value)];
             obj.write(gpib_string);
             obj.sweep_center = value;
@@ -461,7 +462,7 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
             if not (checkMapObj.isKey(check_val))
                 error('Invalid input');
             end
-
+            
             gpib_string = [gpib_string ' ' num2str(value)];
             obj.write(gpib_string);
             obj.sweep_span = value;
@@ -474,7 +475,7 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
             if not (checkMapObj.isKey(value))
                 error('Invalid input');
             end
-
+            
             gpib_string = [gpib_string ' ' checkMapObj(value)];
             obj.write(gpib_string);
             obj.sweep_mode = value;
@@ -488,7 +489,7 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
             if not (checkMapObj.isKey(check_val))
                 error('Invalid input');
             end
-
+            
             gpib_string = [gpib_string ' ' num2str(value)];
             obj.write(gpib_string);
             obj.sweep_points = value;
@@ -502,7 +503,7 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
             if not (checkMapObj.isKey(check_val))
                 error('Invalid input');
             end
-
+            
             gpib_string = [gpib_string ' ' num2str(value)];
             obj.write(gpib_string);
         end
@@ -514,7 +515,7 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
             if not (checkMapObj.isKey(value))
                 error('Invalid input');
             end
-
+            
             gpib_string = [gpib_string ' ' checkMapObj(value)];
             obj.write(gpib_string);
             obj.trigger_source = value;
@@ -528,12 +529,12 @@ classdef AgilentE8363C < deviceDrivers.lib.GPIBorEthernet
             if not (checkMapObj.isKey(check_val))
                 error('Invalid input');
             end
-
+            
             value = 1e9*value; %convert from GHz to Hz
             gpib_string = [gpib_string ' ' num2str(value)];
             obj.write(gpib_string);
         end
     end % end instrument parameter accessors
-
+    
 end % end classdef
 

@@ -197,21 +197,14 @@ classdef AgilentN9020A < deviceDrivers.lib.GPIBorEthernet
     
             % Tell it the precision
             fprintf(interface,':FORMAT:TRACE:DATA REAL,32');
-            fprintf(interface,':FORMAT:DATA REAL,32');
 
             % Set the analyzer into single sweep mode
             fprintf(interface,':INIT:CONT OFF');
 
             % Trigger the sweep and wait for it to complete
-            %fprintf(interface,':INIT:IMM'); %redundent with 3rd cmd below
+            %fprintf(interface,':INIT:IMM');
             %opc=query(interface,'*OPC?');
             fprintf(interface,':INIT:IMM;*WAI');
-            
-            % extra wait just in case
-            sweeptime=str2num(obj.query(':SWE:TIME?'));
-            pause on;
-            pause(sweeptime);
-            pause off;
 
             % Get the data back
             fprintf(interface,':TRACE:DATA? TRACE1');
@@ -221,10 +214,10 @@ classdef AgilentN9020A < deviceDrivers.lib.GPIBorEthernet
             %Get the frequency
             interface=get(obj,'interface');
             SPAN = str2double(query(interface,':FREQ:SPAN?'));
-            SP = str2double(query(interface,':SWE:POIN?'));
+            SP = str2double(query(interface,'OBW:SWE:POIN?'));
             CF = str2double(query(interface,':FREQ:CENT?'));
             StartF = CF-SPAN/2;
-            dF=SPAN./(SP-1);
+            dF=SPAN./1000;
             freq=zeros(SP,1);
             for n=1:SP
                 freq(n)=StartF+(n-1)*dF;
