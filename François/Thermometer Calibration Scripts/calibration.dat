@@ -1,0 +1,2 @@
+setpoint temp, avg measured temp, std error of mean temp, avg measured diode voltage, std error of mean diode voltage
+-----------calibration using chebyshev polynomial fits--------------

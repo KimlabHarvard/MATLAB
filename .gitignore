@@ -12,15 +12,17 @@ data/
 data/*
 cfg/
 cfg/*
+ATS-SDK/*
 *.cfg
 build/
 build32/
 build64/
 dist/
+JNCal_measure_gain_wrapper.m
+FanoFactor_JNCal_AC_wrapper.m
+DC_noise_vs_biasV_wrapper.m
 # eclipse ignores
 .cproject
 .project
 .pydevproject
 *.prefs
-# sequence data files
-/experiments/muWaveDetection/sequences/*.txt

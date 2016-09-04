@@ -1,3 +1,4 @@
+%press F5 to resume
 function h = createPauseButton
 h = figure;
 set(h,'MenuBar','none','Units','Normalized');
