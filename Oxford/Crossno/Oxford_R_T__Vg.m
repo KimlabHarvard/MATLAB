@@ -13,10 +13,11 @@ function data = Oxford_R_T__Vg(Vg_list, SD_Vex, Nmeasurements, VWaitTime1, VWait
 %%Internal convenience functions
 
     function plotResistance()
-        change_to_figure(993); clf; xlabel('Vg (Volts)');ylabel('Resistance (\Omega)');
-        grid on; box on;
+        change_to_figure(993); clf; 
         mask = find(data.R);
-        plot(data.Vg(mask),data.R(mask),'.','MarkerSize',12)
+        plot(data.Vg(mask),data.R(mask),'.','MarkerSize',15);
+        xlabel('Vg (Volts)');ylabel('Resistance (\Omega)');
+        grid on; box on;
     end
 
 %measures the data
@@ -33,7 +34,7 @@ function data = Oxford_R_T__Vg(Vg_list, SD_Vex, Nmeasurements, VWaitTime1, VWait
             data.raw.R(i,n) = ...
                 sqrt(data.raw.Vsd_X(i,n)^2+data.raw.Vsd_Y(i,n)^2)*SD_Rex/SD_Vex;
             data.raw.Tvapor(i,n) = TC.temperatureA;
-            data.raw.Tprobe(i,n) = TC.temperatureb;
+            data.raw.Tprobe(i,n) = TC.temperatureB;
             %check if we are between 5% and 95% of the range, if not autoSens
             high = max(data.raw.Vsd_X(i,n),data.raw.Vsd_Y(i,n));
             if high > SD_sens*0.95 || high < SD_sens*0.05
@@ -48,13 +49,13 @@ function data = Oxford_R_T__Vg(Vg_list, SD_Vex, Nmeasurements, VWaitTime1, VWait
         data.Vsd_X(i) = mean(data.raw.Vsd_X(i,:));
         data.Vsd_Y(i) = mean(data.raw.Vsd_Y(i,:));
         data.R(i) = mean(data.raw.R(i,:));
-        data.Tvapor = mean(data.raw.Tvapor(i,:));
-        data.Tprobe = mean(data.raw.Tprobe(i,:));
+        data.Tvapor(i) = mean(data.raw.Tvapor(i,:));
+        data.Tprobe(i) = mean(data.raw.Tprobe(i,:));
         data.std.Vsd_X(i) = std(data.raw.Vsd_X(i,:));
         data.std.Vsd_Y(i) = std(data.raw.Vsd_Y(i,:));
         data.std.R(i) = std(data.raw.R(i,:));
-        data.Tvapor = std(data.raw.Tvapor(i,:));
-        data.Tprobe = std(data.raw.Tprobe(i,:));
+        data.Tvapor(i) = std(data.raw.Tvapor(i,:));
+        data.Tprobe(i) = std(data.raw.Tprobe(i,:));
     end
 
     function save_data()
@@ -85,11 +86,11 @@ FileName = strcat(datestr(StartTime, 'yyyymmdd_HHMMSS'),'_R_T__Vg_',UniqueName);
 TC = deviceDrivers.Lakeshore335();
 TC.connect('12');
 %Connect lockin amplifier
-LA = deviceDrivers.SRS830();
-LA.connect('8')
+SD = deviceDrivers.SRS830();
+SD.connect('8');
 %connect to YOKO gate supply
 VG = deviceDrivers.YokoGS200();
-VG.connect('18')
+VG.connect('18');
 
 %initialize the gate
 if Vg_limit <= 1.2
@@ -143,6 +144,8 @@ data.settings.SD.Rex = SD_Rex;
 figure(993);clf;xlabel('Vg (Volts)');ylabel('Resistance (\Omega)');grid on;
 %% main loop
 pause on;
+h = createPauseButton;
+pause(0.01); % To create the button.
 for Vg_n=1:length(Vg_list)
     
     %set Vg
@@ -167,6 +170,9 @@ save_data()
 pause off
 VG.ramp2V(0,Vg_rampRate);
 SD.disconnect();
+VG.disconnect();
+TC.disconnect();
+close(h);
 %% Email data
 if EmailJess || EmailKC == 'Y'
     setpref('Internet','E_mail','Sweet.Lady.Science@gmail.com');

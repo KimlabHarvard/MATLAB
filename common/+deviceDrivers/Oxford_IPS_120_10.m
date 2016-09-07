@@ -44,7 +44,7 @@ classdef (Sealed) Oxford_IPS_120_10 < deviceDrivers.lib.GPIB
             end
         end
         
-        %Current or voltage source mode
+        
         function val = get.status(obj)
             val = obj.query('X');
         end
@@ -66,9 +66,10 @@ classdef (Sealed) Oxford_IPS_120_10 < deviceDrivers.lib.GPIB
         
         function val = get.switchHeater(obj)
             state = obj.status();
-            if state(9)==0 || state(9)==2
+            state = str2double(state(9)); %the 9th digit is the heater status
+            if state==0 || state==2
                 val = 0;
-            elseif state(9) == 1
+            elseif state == 1
                 val = 1;
             else
                 error('switch heater fault')
@@ -87,7 +88,6 @@ classdef (Sealed) Oxford_IPS_120_10 < deviceDrivers.lib.GPIB
             assert(val==0 || val==1, 'Oops! switch heater needs to be 0 or 1.');
             obj.query(['H',num2str(val)]);
         end
-        
         
         function val = get.measuredCurrent(obj)
             val = obj.query('R7');
@@ -129,7 +129,15 @@ classdef (Sealed) Oxford_IPS_120_10 < deviceDrivers.lib.GPIB
             obj.query('A0');
         end
         
-        
+        function state = sweepStatus(obj)
+            %n=0 At rest                    (output constant)
+            %n=1 Sweeping                   (output changing)
+            %n=2 Sweep Limiting             (output changing)
+            %n=3 Sweeping & Sweep Limiting  (output changing)
+            state = obj.status();
+            state = str2double(state(12)); %the 12th digit is the sweep status
+        end
+            
         function rampToField(obj,field,sweepRate)
             assert(isnumeric(obj.maxField), 'Oops! not safe to operate without maxField set.');
             assert(isnumeric(obj.maxSweepRate), 'Oops! not safe to operate without maxSweepRate set.');

@@ -16,7 +16,7 @@
 % See the License for the specific language governing permissions and
 % limitations under the License.
 
-classdef (Sealed) YokoGS200 < deviceDrivers.lib.deviceDriverBase & deviceDrivers.lib.GPIBorEthernet
+classdef (Sealed) YokoGS200 < deviceDrivers.lib.GPIBorEthernet
     properties (Access = public)
         output
         range
@@ -66,7 +66,7 @@ classdef (Sealed) YokoGS200 < deviceDrivers.lib.deviceDriverBase & deviceDrivers
             obj.write([':OUTPUT ' value]);
         end
         
-        %ramp to value V @ a rate in V/s defaults to 0.1
+        %ramp to value V @ a rate in V/s
         function ramp2V(obj,Vset,rate)
             assert(isnumeric(Vset)&&isnumeric(rate),'values must be numeric')
             time_per_step = 2E-2;

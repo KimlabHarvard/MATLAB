@@ -113,18 +113,18 @@ function data = VNA_R_T__B_Vg(B_list,Vg_list)
 
 %%
 %%Connect to devices
-% Connect to the Cryo-Con 22 temperature controler
+% Connect to the temperature controler
 TC = deviceDrivers.Lakeshore335();
 TC.connect('12');
 % Connect to the VNA
 VNA = deviceDrivers.AgilentE8363C();
 VNA.connect('140.247.189.97')
-%Connect lockin amplifier
-LA = deviceDrivers.SRS830();
-LA.connect('8')
 %Connect to the Oxford magnet supply
 MS = deviceDrivers.Oxford_IPS_120_10();
 MS.connect('25');
+%Connect lockin amplifier
+LA = deviceDrivers.SRS830();
+LA.connect('8')
 %connect to YOKO gate supply
 VG = deviceDrivers.YokoGS200();
 VG.connect('17')

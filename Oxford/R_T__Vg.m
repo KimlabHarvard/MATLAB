@@ -86,6 +86,8 @@ lastSave = clock;
 
 %initilze data counter
 pause on;
+h = createPauseButton;
+pause(0.01); % To create the button.
 %main loop
 for Vg_n=1:length(Vg_list)
     
@@ -121,8 +123,8 @@ pause off;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%       Clear     %%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-VG.ramp2V(0);
+VG.ramp2V(0,0);
 TC.disconnect();
-LA.disconnect();
+SD.disconnect();
 clear TC LA MS
 end
