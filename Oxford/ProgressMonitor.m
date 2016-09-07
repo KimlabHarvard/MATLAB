@@ -79,3 +79,9 @@ function query_Callback(hObject, eventdata, handles)
 % hObject    handle to query (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+button_state = get(hObject,'Value');
+if button_state == get(hObject,'Max')
+	set(hObject,'String','Updating')
+elseif button_state == get(hObject,'Min')
+	set(hObject,'String','Query')
+end

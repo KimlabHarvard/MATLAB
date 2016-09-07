@@ -176,7 +176,7 @@ data.Vg = Vg_list;
 
 %record all the unsed settings
 data.settings.SR560.gain = 100;
-data.settings.SR560.LP = 10;
+data.settings.SR560.LP = 100;
 data.settings.SR560.gain_mode = 'High Dynamic Reserve';
 data.settings.SD.sineAmp = SD_Vex;
 data.settings.SD.sinePhase = SD_phase;
