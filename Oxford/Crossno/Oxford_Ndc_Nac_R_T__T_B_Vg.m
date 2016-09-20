@@ -1,61 +1,114 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%     What and hOw?      %%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% designed for calibration of johnson noise in oxford
+% designed for thermal conductance via johnson noise in oxford
 % Created in Sep 2016 by Jesse Crossno
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function data = Oxford_Ndc_R_T__T_B_Vg(T_list, B_list,Vg_list, Vg_limit, Vg_rampRate,...
-    Nmeasurements, VWaitTime1, VWaitTime2, measurementWaitTime, SD_Rex, ...
-    SD_Vex, TvaporRampRate, TprobeRampRate, PID, UniqueName)
+function data = Oxford_Ndc_Nac_R_T__T_B_Vg(T_list, B_list,Vg_list, Tac_list, ...
+    Vex_list, Vg_limit, Vg_rampRate, gain_curve, Nmeasurements, VWaitTime1, VWaitTime2, ...
+    measurementWaitTime, SD_Rex, TvaporRampRate, TprobeRampRate, PID, ...
+    UniqueName)
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%     Internal convenience functions    %%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    function plot1Dconductance(i,j)
-        change_to_figure(991); clf;
-        plot(data.Vg, squeeze(25813./data.R(i,j,:)),'.','MarkerSize',15);
+    function plot1Dconductance(T_n,B_n)
+        change_to_figure(997); clf; hold all;
+        R = mean(data.R,4);
+        for i=1:T_n
+            y = squeeze(25813./R(i,B_n,:));
+            mask = find(y ~= 0);
+            plot(data.Vg(mask), y(mask),'.','MarkerSize',15);
+        end
+        title(sprintf('T_{bath} = %.1f K and B = %.3f T',...
+            T_list(T_n),B_list(B_n)));
+        xlabel('Vg (Volts)');ylabel('V_{noise}');
         xlabel('Vg (Volts)');ylabel('Conductance (h/e^2)');
         box on; grid on;
     end
-    function plot1Dnoise(T_n,B_n)
+    function plot1DG(T_n,B_n)
         change_to_figure(992); clf; hold all;
+        G = mean(data.G,4);
         for i=1:T_n
-            VNdc = squeeze(data.VNdc(i,B_n,:));
-            mask = find(VNdc ~= 0);
-            plot(data.Vg(mask), VNdc(mask),'.','MarkerSize',15);
+            y = squeeze(G(i,B_n,:)*1E9);
+            mask = find(y ~= 0);
+            plot(data.Vg(mask), y(mask),'.','MarkerSize',15);
         end
+        title(sprintf('T_{bath} = %.1f K and B = %.3f T',...
+            T_list(T_n),B_list(B_n)));
+        xlabel('Vg (Volts)');ylabel('G_{th} (nW/K)');
+        box on; grid on;
+    end
+    function plotTvP(T_n,B_n,Vg_n)
+        change_to_figure(993); clf;
+        mask = find(squeeze(data.Q(T_n,B_n,Vg_n,:)));
+        plot(squeeze(data.Q(T_n,B_n,Vg_n,mask))*1E9, 1E3*squeeze(data.Tac(T_n,B_n,Vg_n,mask)),'.','MarkerSize',15);
+        hold all; plot(0,0,'.','MarkerSize',15);
+        xlabel('Power (nW)');ylabel('\DeltaT (mK)');
+        title(sprintf('T_{bath} = %.1f K, Vg = %.3f V, and B = %.3f T',...
+            T_list(T_n),Vg_list(Vg_n),B_list(B_n)));
+        box on; grid on;
+    end
+    function plot1Dnoise(T_n,B_n)
+        change_to_figure(994); clf; hold all;
+        VNdc = mean(data.VNdc,4);
+        for i=1:T_n
+            y = squeeze(VNdc(i,B_n,:));
+            mask = find(y ~= 0);
+            plot(data.Vg(mask), y(mask),'.','MarkerSize',15);
+        end
+        title(sprintf('T_{bath} = %.1f K and B = %.3f T',...
+            T_list(T_n),B_list(B_n)));
         xlabel('Vg (Volts)');ylabel('V_{noise}');
         box on; grid on;
     end
-    function plot2Dresistance(i)
-        change_to_figure(993); clf;
-        surf(data.Vg,data.B,squeeze(data.R(i,:,:)));
-        xlabel('Vg (Volts)');ylabel('Field (T)');
-        view(2);shading flat; colorbar; box on; colormap(flipud(cmap));
+    function plotGvVgvB(T_n)
+        change_to_figure(995); clf;
+        G=mean(data.G,4)*1E9;
+        surf(data.Vg,data.B,squeeze(G(T_n,:,:)));
+        xlabel('gate voltage (V)');ylabel('Field (T)');box on;grid on;
+        view(2);shading flat; box on; colormap(cmap);
+        h = colorbar; ylabel(h, 'G_{th} (nW/K)');
+    end
+    function plotGvVgvT(B_n)
+        change_to_figure(995); clf;
+        G=mean(data.G,4)*1E9;
+        surf(data.Vg,data.T,squeeze(G(:,B_n,:)));
+        xlabel('gate voltage (V)');ylabel('T_{set} (K)');box on;grid on;
+        view(2);shading flat; box on; colormap(cmap);
+        h = colorbar; ylabel(h, 'G_{th} (nW/K)');
+    end
+    function plot1DL(T_n,B_n)
+        change_to_figure(996); clf; hold all;
+        L = mean(data.G,4).*mean(data.R,4)./(12*2.44E-8*mean(data.Tprobe,4));
+        for i=1:T_n
+            y = squeeze(L(i,B_n,:));
+            mask = find(y ~= 0);
+            plot(data.Vg(mask), y(mask),'.','MarkerSize',15);
+        end
+        title(sprintf('T_{bath} = %.1f K and B = %.3f T',...
+            T_list(T_n),B_list(B_n)));
+        xlabel('Vg (Volts)');ylabel('L (L_0)');
+        box on; grid on;
     end
     function plotLog()
-        change_to_figure(994); clf; grid on; hold on; xlabel('time (hr)');
+        change_to_figure(991); clf; grid on; hold on; xlabel('time (hr)');
         
         [ax,h1,h2] = plotyy(data.log.time/3600,data.log.field,data.log.time/3600,data.log.Tprobe);
-        set(h1,'LineStyle','--','Marker','o');
-        set(h2,'LineStyle','--','Marker','o');
-        
-        axes(ax(1));hold on;h4=plot(data.log.time/3600,data.log.persistfield,'--oc');ylim(ax(1),'auto');
-        axes(ax(1));hold on;h5=plot(data.log.time/3600,data.log.B_set,'-c');ylim(ax(1),'auto');
-        
+        set(h1,'LineStyle','--','Marker','.','MarkerSize',15);
+        set(h2,'LineStyle','--','Marker','.','MarkerSize',15);
         axes(ax(2));hold on;h3=plot(data.log.time/3600,data.log.Tvapor,'--or');ylim(ax(2),'auto');
-        axes(ax(2));hold on;h6=plot(data.log.time/3600,data.log.T_set,'-y');ylim(ax(2),'auto');
         
         ylabel(ax(1),'Field (Tesla)');
         ylabel(ax(2),'Temperature (K)');
-        legend([h1 h4 h5 h2 h3 h6],'Field','Persistent Field','B setpoint','T Probe','T Vapor','T setpoint','Location','NorthWest');
+        legend([h1 h2 h3],'Field','T Probe','T Vapor','Location','NorthWest');
     end
 
 %measures the data
-    function measure_data(i,j,k)
+    function measure_data(T_n,B_n,Vg_n,Tac_n)
         n = 1;
         t = clock;
         %repeat measurements n time (excluding VNA)
@@ -63,38 +116,65 @@ function data = Oxford_Ndc_R_T__T_B_Vg(T_list, B_list,Vg_list, Vg_limit, Vg_ramp
             while etime(clock,t) < measurementWaitTime
             end
             t = clock; %pausing this way accounts for the measurement time
-            data.raw.time(i,j,k,n) = etime(clock, StartTime);
-            data.raw.Tvapor(i,j,k,n) = TC.temperatureA();
-            data.raw.Tprobe(i,j,k,n) = TC.temperatureB();
-            [data.raw.Vsd_X(i,j,k,n), data.raw.Vsd_Y(i,j,k,n)] = SD.snapXY();
-            Vsd = sqrt(data.raw.Vsd_X(i,j,k,n)^2+data.raw.Vsd_Y(i,j,k,n)^2);
-            data.raw.R(i,j,k,n) = Vsd*SD_Rex/(SD_Vex-Vsd);
-            data.raw.VNdc(i,j,k,n) = Ndc.senseVoltage();
+            data.raw.time(T_n,B_n,Vg_n,Tac_n,n) = etime(clock, StartTime);
+            data.raw.Tvapor(T_n,B_n,Vg_n,Tac_n,n) = TC.temperatureA();
+            data.raw.Tprobe(T_n,B_n,Vg_n,Tac_n,n) = TC.temperatureB();
+            [data.raw.Vsd_X(T_n,B_n,Vg_n,Tac_n,n), data.raw.Vsd_Y(T_n,B_n,Vg_n,Tac_n,n)] = SD.snapXY();
+            Vsd = sqrt(data.raw.Vsd_X(T_n,B_n,Vg_n,Tac_n,n)^2+data.raw.Vsd_Y(T_n,B_n,Vg_n,Tac_n,n)^2);
+            data.raw.R(T_n,B_n,Vg_n,Tac_n,n) = Vsd*SD_Rex/(SD_Vex-Vsd);
+            data.raw.VNdc(T_n,B_n,Vg_n,Tac_n,n) = Ndc.senseVoltage();
+            [data.raw.VNac_X(T_n,B_n,Vg_n,Tac_n,n), data.raw.VNac_Y(T_n,B_n,Vg_n,Tac_n,n)] = Nac.snapXY();
             
             
             %check if we are between 5% and 95% of the range, if not autoSens
-            high = max(data.raw.Vsd_X(i,j,k,n),data.raw.Vsd_Y(i,j,k,n));
-            if high > SD_sens*0.95 || high < SD_sens*0.05
+            SD_high = max(abs(data.raw.Vsd_X(T_n,B_n,Vg_n,Tac_n,n)),abs(data.raw.Vsd_Y(T_n,B_n,Vg_n,Tac_n,n)));
+            Nac_high = max(abs(data.raw.VNac_X(T_n,B_n,Vg_n,Tac_n,n)),abs(data.raw.VNac_Y(T_n,B_n,Vg_n,Tac_n,n)));
+            OK = 1;
+            if SD_high > SD_sens*0.95 || SD_high < SD_sens*0.05
                 SD.autoSens(0.25,0.75);
                 SD_sens = SD.sens();
-            else
+                OK = 0;
+            end
+            if Nac_high > Nac_sens*0.95 || Nac_high < Nac_sens*0.05
+                Nac.autoSens(0.25,0.75);
+                Nac_sens = Nac.sens();
+                OK = 0;
+            end
+            if OK == 1
                 %if the measurement was good, increment.
                 n = n+1;
             end
         end
-        data.time(i,j,k) = mean(data.raw.time(i,j,k,:));
-        data.Vsd_X(i,j,k) = mean(data.raw.Vsd_X(i,j,k,:));
-        data.Vsd_Y(i,j,k) = mean(data.raw.Vsd_Y(i,j,k,:));
-        data.R(i,j,k) = mean(data.raw.R(i,j,k,:));
-        data.Tvapor(i,j,k) = mean(data.raw.Tvapor(i,j,k,:));
-        data.Tprobe(i,j,k) = mean(data.raw.Tprobe(i,j,k,:));
-        data.VNdc(i,j,k) = mean(data.raw.VNdc(i,j,k,:));
-        data.std.Vsd_X(i,j,k) = std(data.raw.Vsd_X(i,j,k,:));
-        data.std.Vsd_Y(i,j,k) = std(data.raw.Vsd_Y(i,j,k,:));
-        data.std.R(i,j,k) = std(data.raw.R(i,j,k,:));
-        data.Tvapor(i,j,k) = mean(data.raw.Tvapor(i,j,k,:));
-        data.Tprobe(i,j,k) = mean(data.raw.Tprobe(i,j,k,:));
-        data.std.VNdc(i,j,k) = std(data.raw.VNdc(i,j,k,:));
+        data.time(T_n,B_n,Vg_n,Tac_n) = mean(data.raw.time(T_n,B_n,Vg_n,Tac_n,:));
+        data.Vsd_X(T_n,B_n,Vg_n,Tac_n) = mean(data.raw.Vsd_X(T_n,B_n,Vg_n,Tac_n,:));
+        data.Vsd_Y(T_n,B_n,Vg_n,Tac_n) = mean(data.raw.Vsd_Y(T_n,B_n,Vg_n,Tac_n,:));
+        data.R(T_n,B_n,Vg_n,Tac_n) = mean(data.raw.R(T_n,B_n,Vg_n,Tac_n,:));
+        data.Tvapor(T_n,B_n,Vg_n,Tac_n) = mean(data.raw.Tvapor(T_n,B_n,Vg_n,Tac_n,:));
+        data.Tprobe(T_n,B_n,Vg_n,Tac_n) = mean(data.raw.Tprobe(T_n,B_n,Vg_n,Tac_n,:));
+        data.VNdc(T_n,B_n,Vg_n,Tac_n) = mean(data.raw.VNdc(T_n,B_n,Vg_n,Tac_n,:));
+        data.VNac_X(T_n,B_n,Vg_n,Tac_n) = mean(data.raw.VNac_X(T_n,B_n,Vg_n,Tac_n,:));
+        data.VNac_Y(T_n,B_n,Vg_n,Tac_n) = mean(data.raw.VNac_Y(T_n,B_n,Vg_n,Tac_n,:));
+        
+        data.std.Vsd_X(T_n,B_n,Vg_n,Tac_n) = std(data.raw.Vsd_X(T_n,B_n,Vg_n,Tac_n,:));
+        data.std.Vsd_Y(T_n,B_n,Vg_n,Tac_n) = std(data.raw.Vsd_Y(T_n,B_n,Vg_n,Tac_n,:));
+        data.std.R(T_n,B_n,Vg_n,Tac_n) = std(data.raw.R(T_n,B_n,Vg_n,Tac_n,:));
+        data.Tvapor(T_n,B_n,Vg_n,Tac_n) = mean(data.raw.Tvapor(T_n,B_n,Vg_n,Tac_n,:));
+        data.Tprobe(T_n,B_n,Vg_n,Tac_n) = mean(data.raw.Tprobe(T_n,B_n,Vg_n,Tac_n,:));
+        data.std.VNdc(T_n,B_n,Vg_n,Tac_n) = std(data.raw.VNdc(T_n,B_n,Vg_n,Tac_n,:));
+        data.std.VNac_X(T_n,B_n,Vg_n,Tac_n) = std(data.raw.VNac_X(T_n,B_n,Vg_n,Tac_n,:));
+        data.std.VNac_Y(T_n,B_n,Vg_n,Tac_n) = std(data.raw.VNac_X(T_n,B_n,Vg_n,Tac_n,:));
+        
+        Vsd = sqrt(data.Vsd_X(T_n,B_n,Vg_n,Tac_n)^2+data.raw.Vsd_Y(T_n,B_n,Vg_n,Tac_n)^2);
+        %VNac = sqrt(data.VNac_X(T_n,B_n,Vg_n,Tac_n)^2+data.raw.VNac_Y(T_n,B_n,Vg_n,Tac_n)^2);
+        VNac = data.VNac_X(T_n,B_n,Vg_n,Tac_n);
+        R = Vsd*SD_Rex/(SD_Vex-Vsd);
+        g = gain_curve(log10(R));
+        Q = 2*R*(SD_Vex/(SD_Rex+R))^2; %factor of 2 converts between rms and p2p
+        Tac = 2*sqrt(2)*VNac/g;
+        data.Tac(T_n,B_n,Vg_n,Tac_n) = Tac;
+        data.R(T_n,B_n,Vg_n,Tac_n) = R;
+        data.Q(T_n,B_n,Vg_n,Tac_n) = Q;
+        data.G(T_n,B_n,Vg_n,Tac_n) = Q/Tac;
     end
 
     function save_data()
@@ -183,6 +263,8 @@ SD_freq = 17.777;
 SD_timeConstant = 0.3;  %time constant to use on LA
 SD_coupling = 'AC';     %only use DC when measureing below 160mHz
 tolProbe=0.5;           %temperatre tolerance for the probe
+Nac_timeConstant = 1;
+Nac_coupling = 'AC';
 
 % Initialize data structure and filename
 start_dir = 'C:\Crossno\data\';
@@ -202,6 +284,9 @@ Ndc.connect('26');
 %Connect source-drain lockin amplifier
 SD = deviceDrivers.SRS830();
 SD.connect('8')
+%Connect Nac lockin amplifier
+Nac = deviceDrivers.SRS830();
+Nac.connect('9')
 %connect to YOKO gate supply
 VG = deviceDrivers.YokoGS200();
 VG.connect('18')
@@ -234,7 +319,14 @@ else
     VG.range = 30;
 end
 
+%initialize Nac Lockin
+Nac.timeConstant = Nac_timeConstant;
+Nac.inputCoupling = Nac_coupling;
+Nac_sens = Nac.sens;
+
+
 %initialize Lockin
+SD_Vex = 0.004;
 SD.sineAmp = SD_Vex;
 SD.sinePhase = SD_phase;
 SD.sineFreq = SD_freq;
@@ -243,8 +335,8 @@ SD.inputCoupling = SD_coupling;
 SD_sens = SD.sens;
 
 % Initialize data structure
-blank = zeros(length(T_list),length(B_list),length(Vg_list));
-blank_raw = zeros(length(T_list),length(B_list),length(Vg_list),Nmeasurements);
+blank = zeros(length(T_list),length(B_list),length(Vg_list),length(Tac_list));
+blank_raw = zeros(length(T_list),length(B_list),length(Vg_list),length(Tac_list),Nmeasurements);
 
 data.time = blank;
 data.Tvapor = blank;
@@ -253,6 +345,11 @@ data.Vsd_X = blank;
 data.Vsd_Y = blank;
 data.R = blank;
 data.VNdc = blank;
+data.VNac_X = blank;
+data.VNac_Y = blank;
+data.Tac = blank;
+data.Q = blank;
+data.G = blank;
 
 data.raw.time = blank_raw;
 data.raw.Tvapor = blank;
@@ -261,25 +358,31 @@ data.raw.Vsd_X = blank_raw;
 data.raw.Vsd_Y = blank_raw;
 data.raw.R = blank_raw;
 data.raw.VNdc = blank_raw;
+data.raw.VNac_X = blank_raw;
+data.raw.VNac_Y = blank_raw;
 
 data.T = T_list;
 data.B = B_list;
 data.Vg = Vg_list;
+data.Tac_set = Tac_list;
+data.gain_curve = gain_curve;
+
 
 data.log = struct('time',[],'Tvapor',[],'Tprobe',[],'SD_X',[],'SD_Y',[],...
     'R',[],'field',[],'persistfield',[],'T_set',[],'B_set',[]);
 
 %record all the unsed settings
-%record all the unsed settings
 data.settings.SR560.gain = 100;
 data.settings.SR560.LP = 100;
 data.settings.SR560.gain_mode = 'High Dynamic Reserve';
-data.settings.SD.sineAmp = SD_Vex;
 data.settings.SD.sinePhase = SD_phase;
 data.settings.SD.sineFreq = SD_freq;
 data.settings.SD.timeConstant = SD_timeConstant;
 data.settings.SD.inputCoupling = SD_coupling;
 data.settings.SD.Rex = SD_Rex;
+data.settings.Nac.timeConstant = Nac_timeConstant;
+data.settings.Nac.inputCoupling = Nac_coupling;
+data.settings.Nac.sinePhase = SD_phase;
 data.settings.MS.ramp_rate = MS.sweepRate;
 data.settings.TC.rampRate1 = TvaporRampRate;
 data.settings.TC.rampRate2 = TprobeRampRate;
@@ -290,10 +393,13 @@ data.settings.TC.tolProbe = tolProbe;
 %initialize plots and GUIs
 cmap = cbrewer('div','RdYlBu',64,'linear');
 scrsz = get(groot,'ScreenSize');
-figure(994);set(gcf,'Position',[10, scrsz(4)/2, scrsz(3)/3-10, 0.84*scrsz(4)/2]);
-figure(993);set(gcf,'Position',[10+scrsz(3)/3, scrsz(4)/2, scrsz(3)/3-10, 0.84*scrsz(4)/2]);
-figure(992);set(gcf,'Position',[10+2*scrsz(3)/3, scrsz(4)/2, scrsz(3)/3-10, 0.84*scrsz(4)/2]);
-figure(991);set(gcf,'Position',[scrsz(3)/3, 50, 2*scrsz(3)/3, scrsz(4)/2-130]);
+figure(997);set(gcf,'Position',[10, 2*scrsz(4)/3, scrsz(3)/3-10, 0.84*scrsz(4)/3]);
+figure(996);set(gcf,'Position',[10+scrsz(3)/3, 2*scrsz(4)/3, scrsz(3)/3-10, 0.84*scrsz(4)/3]);
+figure(995);set(gcf,'Position',[10+2*scrsz(3)/3, 2*scrsz(4)/3, scrsz(3)/3-10, 0.84*scrsz(4)/3]);
+figure(994);set(gcf,'Position',[10, scrsz(4)/3, scrsz(3)/3-10, 0.84*scrsz(4)/3]);
+figure(993);set(gcf,'Position',[10+scrsz(3)/3, scrsz(4)/3, scrsz(3)/3-10, 0.84*scrsz(4)/3]);
+figure(992);set(gcf,'Position',[10+2*scrsz(3)/3, scrsz(4)/3, scrsz(3)/3-10, 0.84*scrsz(4)/3]);
+figure(991);set(gcf,'Position',[scrsz(3)/3, 50, 2*scrsz(3)/3, scrsz(4)/3-130]);
 HeCtrl = HeFillControl();
 emFill = findobj(HeCtrl,'tag','emergencyFill'); %emergencyFill handle
 pauseAtZero = findobj(HeCtrl,'tag','pauseAtZero'); %fill at 0T handle
@@ -344,10 +450,12 @@ for T_n=1:length(T_list)
     
     B_n = 0;
     while B_n < length(B_list)
+        SD.sineAmp = 0.004; %set Vex to a safe value
+        
         B_n = B_n+1;
         %set field
         MS.switchHeater = 0;
-        MS.targetField = MS.persistentField;  
+        MS.targetField = MS.persistentField;
         target_field = B_list(B_n);
         MS.switchHeater = 1;
         MS.targetField = target_field;
@@ -369,7 +477,7 @@ for T_n=1:length(T_list)
         MS.switchHeater = 0;
         
         %stop at 0 T, only works if 0T is in B_list for now
-%TODO think about best way to pause if 0T is not in B_list
+        %TODO think about best way to pause if 0T is not in B_list
         if target_field == 0;
             if pauseAtZero.Value == 1;
                 pauseAtZero.String = 'F5 to resume';
@@ -384,47 +492,57 @@ for T_n=1:length(T_list)
             currentVg = Vg_list(Vg_n);
             pm_handles.Vgate.String = sprintf('%.2f V',currentVg);
             VG.ramp2V(currentVg,Vg_rampRate);
+            %round Vex to nearest 2mV between 4mV and 5 V
+            SD_Vex=min(max(0.004,round(500*Vex_list(Vg_n))/500),5);
+            SD.sineAmp=SD_Vex;
             if Vg_n==1
                 pause(VWaitTime1);
             else
                 pause(VWaitTime2);
             end
             
-            %try to measure, if it fails try again up to 10 times then move
-            %on.
-            attempts = 0;
-            while true
-                try
-                    measure_data(T_n,B_n,Vg_n)
+            %first measurment G is unknown, so you can set a target T
+            %second measurment uses G from first to estimate Q for target T
+            for Tac_n=1:length(Tac_list)
+                %round Vex to nearest 2mV between 4mV and 5 V
+                SD_Vex=min(max(0.004,round(500*Vex_list(Vg_n))/500),5);
+                SD.sineAmp=SD_Vex;
+                pause(VWaitTime2)
+                measure_data(T_n,B_n,Vg_n,Tac_n)
+                %use the previous G to estimate what Vex is needed next
+                Tnext = Tac_list(mod(Tac_n,length(Tac_list))+1);
+                G = mean(data.G(T_n,B_n,Vg_n,1:Tac_n));
+                R = max(50,mean(data.R(T_n,B_n,Vg_n,1:Tac_n)));
+                if G > 0
+                    Vex_list(Vg_n) = sqrt(G*Tnext/(2*R))*SD_Rex;
+                else
+                    Vex_list(Vg_n) = Vex_list(Vg_n)*sqrt(2);
+                end
+                plotTvP(T_n,B_n,Vg_n);pause(0.01);
+                if pm_handles.query.Value == 1
+                    updateProgressMonitor();
+                end
+                
+                %check for emergency Helium fill
+                if emFill.Value == 1
+                    emergencyFill();
+                    B_n = B_n-1;
                     break
-                catch
-                    attempts = attempts+1;
-                    if attempts < 10
-                        warning('failed to collect data at %.1f K, %.1f T, %.3f V. retrying.',...
-                            T_set, target_field, currentVg);
-                    else
-                        warning('failed 10 times. moving on')
-                        break
-                    end
                 end
             end
-            if pm_handles.query.Value == 1
-                updateProgressMonitor();
-            end
             
-            plot1Dconductance(T_n,B_n);
-            plot1Dnoise(T_n,B_n);
-            if mod(Vg_n,25) == 1
-                plot2Dresistance(T_n);
+            if mod(Vg_n,1) == 0
+                plotGvVgvB(T_n)
             end
-            
-            %check for emergency Helium fill
-            if emFill.Value == 1
-                emergencyFill();
-                B_n = B_n-1;
-                break
+            if mod(Vg_n,1)==0
+                plot1Dconductance(T_n,B_n);
+                plot1Dnoise(T_n,B_n);
+                plot1DG(T_n,B_n);
+                plot1DL(T_n,B_n);
             end
         end
+        SD_Vex=0.004;
+        SD.sineAmp=SD_Vex;
         save_data();
         toc
     end

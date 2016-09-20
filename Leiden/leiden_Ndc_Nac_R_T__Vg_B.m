@@ -55,7 +55,7 @@ function data = leiden_Ndc_Nac_R_T__Vg_B(B_list, Vg_list, Tac_list, Vex_list,...
     end
     function plot2L()
         change_to_figure(996); clf;
-        L=mean(data.G,3).*mean(data.R,3)./mean(data.T,3);
+        L=mean(data.G,3).*mean(data.R,3)./(mean(data.T,3);
         surf(data.Vg,data.B,10*log10(L/2.44E-8));
         xlabel('gate voltage (V)');ylabel('Field (T)');box on;grid on;
         view(2);shading flat; box on; colormap(cmap);
@@ -122,7 +122,6 @@ function data = leiden_Ndc_Nac_R_T__Vg_B(B_list, Vg_list, Tac_list, Vex_list,...
         data.R(i,j,k) = R;
         data.Q(i,j,k) = Q;
         data.G(i,j,k) = Q/Tac;
-        
     end
 
     function save_data()
@@ -271,22 +270,18 @@ for B_n=1:length(B_list)
     while MS.state() ~= 2
         pause(5);
     end
+    
     for Vg_n=1:length(Vg_list)
         %set Vg
-        
         currentVg = Vg_list(Vg_n);
         VG.ramp2V(currentVg,rampRate);
-        
-        %set excitation current to first value
-        SD_Vex=min(max(0.01,round(100*Vex_list(Vg_n))/100),5);
-        SD.sineAmp=SD_Vex;
         if Vg_n==1 && B_n ~= 1
             pause(VWaitTime1);
         else
             pause(VWaitTime2);
         end
         
-        %first measurment G is unknown, so you can set a target T
+        %first measurment G is unknown, so you cant set a target T
         %second measurment uses G from first to estimate Q for target T
         for Tn=1:length(Tac_list) 
             %round Vex to nearest 2mV between 4mV and 5 V
