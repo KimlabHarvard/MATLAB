@@ -530,7 +530,7 @@ for T_n=1:length(T_list)
                     break
                 end
             end
-            
+            save_data();
             if mod(Vg_n,1) == 0
                 plotGvVgvB(T_n)
             end
@@ -553,7 +553,6 @@ end
 %%%%%%%%%%%%%%%%%%%%%       Clear     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 pause off
-close(HeCtrl)
 target_field = 0;
 MS.switchHeater = 1;
 MS.targetField = target_field;
@@ -572,6 +571,8 @@ TC.setPoint1 = 0;
 TC.setPoint2 = 0;
 
 updateProgressMonitor();
+close(HeCtrl)
+close(pmGUI)
 TC.disconnect();
 SD.disconnect();
 MS.disconnect();

@@ -18,5 +18,5 @@ Tb = TC.temperatureB();
 Q = 2*I^2*(R);
 G = Q/Tac;
 L = G*(R)/(12*2.44E-8*Tb)
-SD.disconnect();Nac.disconnect(); pause(1);
+SD.disconnect();Nac.disconnect(); TC.disconnect();
 clear Rex Vex g V I SD Nac

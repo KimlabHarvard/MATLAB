@@ -373,7 +373,7 @@ for T_n=1:length(T_list)
             end
             
             plot1Dconductance(T_n,B_n);
-            if mod(Vg_n,25) == 1
+            if mod(Vg_n,5) == 0
                 plot2Dresistance(T_n);
                 plotVNA(T_n,B_n);
             end
@@ -395,7 +395,8 @@ end
 %%%%%%%%%%%%%%%%%%%%%       Clear     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 pause off
-close(pb)
+close(HeCtrl)
+close(pmGUI)
 target_field = 0;
 MS.switchHeater = 1;
 MS.targetField = target_field;

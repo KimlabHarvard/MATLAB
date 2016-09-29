@@ -62,7 +62,7 @@ function data = Oxford_R_T__Vg(Vg_list, SD_Vex, Nmeasurements, VWaitTime1, VWait
 
 
 %saftey checks (more checks below)
-if max(abs(Vg_list)) >= Vg_limit
+if max(abs(Vg_list)) > Vg_limit
     error('Gate voltage set above limit,exiting');
 end
 
