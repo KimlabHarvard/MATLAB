@@ -25,7 +25,6 @@ function data = Oxford_Ndc_Nac_R_T__T_B_Vg(T_list, B_list,Vg_list, Tac_list, ...
         end
         title(sprintf('T_{bath} = %.1f K and B = %.3f T',...
             T_list(T_n),B_list(B_n)));
-        xlabel('Vg (Volts)');ylabel('V_{noise}');
         xlabel('Vg (Volts)');ylabel('Conductance (h/e^2)');
         box on; grid on;
     end

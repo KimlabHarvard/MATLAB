@@ -31,6 +31,8 @@ classdef Lakeshore335 < deviceDrivers.lib.deviceDriverBase & deviceDrivers.lib.G
     properties (SetAccess=private)
         temperatureA
         temperatureB
+        heater1
+        heater2
     end
 
 	methods
@@ -135,7 +137,15 @@ classdef Lakeshore335 < deviceDrivers.lib.deviceDriverBase & deviceDrivers.lib.G
 		
 		%Getter/setter for front-panel LEDs as boolean
 		function val = get.leds(obj)
-			val = logical(str2double(obj.query('LEDS?')));
+			val = str2double(obj.query('LEDS?'));
+        end
+        
+        function val = get.heater1(obj)
+			val = str2double(obj.query('HTR? 1'));
+        end
+        
+        function val = get.heater2(obj)
+			val = logical(str2double(obj.query('HTR? 2')));
 		end
 
 		function set.leds(obj,val)
