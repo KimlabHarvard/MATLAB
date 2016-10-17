@@ -27,6 +27,7 @@ classdef (Sealed) SRS830 < deviceDrivers.lib.GPIB
         bufferRate % if using buffer, rate in Hz to record data
         bufferMode %'loop' reads continuously, 'shot' reads until full.
         sens %sensitivity
+        harm %harmonic
     end
     
     properties (SetAccess=private)
@@ -50,6 +51,16 @@ classdef (Sealed) SRS830 < deviceDrivers.lib.GPIB
     end
     
     methods
+        
+        %harmonic
+        function val = get.harm(obj)
+            val = str2double(obj.query('HARM?'));
+        end
+        function obj = set.harm(obj, value)
+            assert(mod(value,1)==0,'harmonic must be an interger')
+            assert(value > 0,'harmonic must be positive')
+            obj.write('HARM %d', value);
+        end
         
         %Filter time constant
         function val = get.sens(obj)

@@ -11,11 +11,12 @@ Vex = SD.sineAmp();
 V = SD.X;
 I = (Vex-V)/Rex;
 R = V/I;
-g = gain_curve(log10(R));
-Tac = 2*sqrt(2)*Nac.X/g;
+g = 20*gain_curve(log10(R));
+Tac = 2*sqrt(2)*Nac.X/0.007;
+Tac = 6.8E-3/0.007;
 Tb = TC.temperatureA();
 Q = 2*I^2*(R);
 G = Q/Tac;
 L = G*(R)/(12*2.44E-8*Tb)
 SD.disconnect();Nac.disconnect(); TC.disconnect();
-clear Rex Vex g V I SD Nac
+clear Rex Vex g V I SD Nacf
