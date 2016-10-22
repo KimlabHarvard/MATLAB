@@ -81,7 +81,6 @@ function data = Francois_VNA_R_T__Vg(Vg_list, Vg_limit, Vg_rampRate,...
     %% get experiment parameters from user
     
     %set constants
-    timeLogInterval = 5; %seconds between logging field and Temp
     SD_phase = 0; %Phase to use on LA sine output
     SD_freq = 17.777;
     SD_timeConstant = 0.3; %time constant to use on LA
@@ -91,14 +90,14 @@ function data = Francois_VNA_R_T__Vg(Vg_list, Vg_limit, Vg_rampRate,...
     start_dir = 'C:\Crossno\data\';
     start_dir = uigetdir(start_dir);
     StartTime = clock;
-    FileName = strcat(datestr(StartTime, 'yyyymmdd_HHMMSS'),'_VNA_R_T__Vg_',UniqueName);
+    FileName = strcat(datestr(StartTime, 'yyyymmdd_HHMMSS'),'_',mfilename(),'_',UniqueName);
     
     %% Initialize file structure and equipment
     TC = deviceDrivers.Lakeshore335();
     TC.connect('12');
     % Connect to the VNA
     VNA = deviceDrivers.AgilentE8363C();
-    VNA.connect('140.247.189.8')
+    VNA.connect('140.247.189.127')
     %Connect source-drain lockin amplifier
     SD = deviceDrivers.SRS830();
     SD.connect('1')

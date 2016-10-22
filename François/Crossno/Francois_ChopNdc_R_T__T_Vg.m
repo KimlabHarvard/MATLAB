@@ -137,7 +137,7 @@ function data = Francois_ChopNdc_R_T__T_Vg(T_list, Vg_list, Vg_limit, Vg_rampRat
     start_dir = 'C:\Crossno\data\';
     start_dir = uigetdir(start_dir);
     StartTime = clock;
-    FileName = strcat(datestr(StartTime, 'yyyymmdd_HHMMSS'),'_ChopNdc_R_T__T_Vg_',UniqueName);
+    FileName = strcat(datestr(StartTime, 'yyyymmdd_HHMMSS'),'_',mfilename(),'_',UniqueName);
     
     %%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

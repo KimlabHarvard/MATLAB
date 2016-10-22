@@ -196,7 +196,7 @@ function data = Francois_Ndc_Nac_R_T__T_Vg(T_list,Vg_list, Tac_list, ...
     start_dir = 'C:\Crossno\data\';
     start_dir = uigetdir(start_dir);
     StartTime = clock;
-    FileName = strcat(datestr(StartTime, 'yyyymmdd_HHMMSS'),'_Ndc_Nac_R_T__T_Vg_',UniqueName);
+    FileName = strcat(datestr(StartTime, 'yyyymmdd_HHMMSS'),'_',mfilename(),'_',UniqueName);
     
     %%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
