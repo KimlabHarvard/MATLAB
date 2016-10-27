@@ -45,9 +45,9 @@ classdef Keithley2400 < deviceDrivers.lib.GPIBorEthernet
             data=obj.query(':READ?');
             
             if strcmp(strtrim(obj.query(':SENSE:FUNCTION?')),'"VOLT:DC"')
-                val = str2num(data(1:13));
+                val = str2double(data(1:13));
             elseif strcmp(strtrim(obj.query(':SENSE:FUNCTION?')),'"CURR:DC"')
-                val = str2num(data(15:27));
+                val = str2double(data(15:27));
             end
         end
         
@@ -73,7 +73,6 @@ classdef Keithley2400 < deviceDrivers.lib.GPIBorEthernet
         
         %set value (voltage or current) regardless of mode
         function obj = set.value(obj, value)
-            
             if strcmp(strtrim(obj.query(':SOURCE:FUNCTION?')),'VOLT')
                 obj.write([':SOURCE:VOLT:LEVEL ' num2str(value)]);
             elseif strcmp(strtrim(obj.query(':SOURCE:FUNCTION?')),'CURR')
@@ -108,21 +107,33 @@ classdef Keithley2400 < deviceDrivers.lib.GPIBorEthernet
         end
         
         % set current range
-        function set.CurrentRange(obj, value)
+        function obj = set.CurrentRange(obj, value)
             % Validate input
             assert(isnumeric(value), 'Invalid input');
             obj.write(sprintf('SOURce:CURR:RANGE %G;',value));
         end
         
         % set current
-        function set.Current(obj, value)
+        function obj = set.Current(obj, value)
             % Validate input
+            assert(strcmp(strtrim(obj.query(':SOURCE:FUNCTION?')),'CURR'), 'Cannot set current. Not sourcing current')
             assert(isnumeric(value), 'Invalid input');
-            obj.write(sprintf('SOURce:CURR:LEV:IMM:AMP %G;',value));
+            obj.write(sprintf('SOUR:CURR:LEV:IMM:AMPL %G;',value));
+        end
+        
+        % get voltage if sourceing voltage return source value, if sensing
+        % return sense, if both return source
+        function val = get.Current(obj)
+            if strcmp(strtrim(obj.query(':SOURCE:FUNCTION?')),'CURR')
+                val = str2double(obj.query('SOUR:CURR:LEV:AMPL?;'));
+            elseif strcmp(strtrim(obj.query(':SENSE:FUNCTION?')),'"CURR:DC"')
+                data=obj.query(':READ?');
+                val = str2double(data(15:27));
+            end
         end
         
         % set current protection
-        function set.CurrentLimit(obj, value)
+        function obj = set.CurrentLimit(obj, value)
             % Validate input
             assert(isnumeric(value), 'Invalid input');
             obj.write(sprintf('SOURce:CURR:PROT:LEV %G;',value));
@@ -134,20 +145,32 @@ classdef Keithley2400 < deviceDrivers.lib.GPIBorEthernet
         end
         
         %Set voltage range
-        function set.VoltageRange(obj, value)
+        function obj = set.VoltageRange(obj, value)
             % Validate input
             assert(isnumeric(value), 'Invalid input');
             obj.write(sprintf('SOURce:VOLT:RANGE %G;',value));
         end
         
         % set voltage
-        function set.Voltage(obj, value)
+        function obj =set.Voltage(obj, value)
             % Validate input
+            assert(strcmp(strtrim(obj.query(':SOURCE:FUNCTION?')),'VOLT'), 'Cannot set voltage. Not sourcing voltage')
             assert(isnumeric(value), 'Invalid input');
-            obj.write(sprintf('SOURce:VOLT:LEV:IMM:AMP %G;',value));
+            obj.write(sprintf('SOURce:VOLT:LEV:IMM:AMPL %G;',value));
         end
         
-        function set.avg_mode(obj, value)
+        % get voltage if sourceing voltage return source value, if sensing
+        % return sense, if both return source
+        function val = get.Voltage(obj)
+            if strcmp(strtrim(obj.query(':SOURCE:FUNCTION?')),'VOLT')
+                val = str2double(obj.query('SOUR:VOLT:LEV:AMPL?;'));
+            elseif strcmp(strtrim(obj.query(':SENSE:FUNCTION?')),'"VOLT:DC"')
+                data=obj.query(':READ?');
+                val = str2double(data(1:13));
+            end
+        end
+        
+        function obj = set.avg_mode(obj, value)
             if isnumeric(value) || islogical(value)
                 value = num2str(value);
             end
@@ -158,14 +181,14 @@ classdef Keithley2400 < deviceDrivers.lib.GPIBorEthernet
             obj.write(['SENS:AVER:TCON ' value]);
         end
         
-        function set.avg_count(obj,value)
+        function obj = set.avg_count(obj,value)
             if ~isnumeric(value) || value<1 || value>100
                 error('Invalid input')
             end
             obj.write('SENS:AVER:COUN %G',value);
         end
         
-        function set.NPLC(obj,value)
+        function obj = set.NPLC(obj,value)
             if ~isnumeric(value) || value<.01 || value>10
                 error('Invalid input')
             end
@@ -174,7 +197,7 @@ classdef Keithley2400 < deviceDrivers.lib.GPIBorEthernet
         
         
         % set voltage protection
-        function set.VoltageLimit(obj, value)
+        function obj = set.VoltageLimit(obj, value)
             % Validate input
             assert(isnumeric(value), 'Invalid input');
             obj.write(sprintf('SOURce:VOLT:PROT:LEV %G;',value));
@@ -188,28 +211,52 @@ classdef Keithley2400 < deviceDrivers.lib.GPIBorEthernet
         
         % Turn current measurement on
         function EnableCurrentMeasure(obj)
-            obj.write('SENS:ON; CURR;');
+            obj.write('SENS:FUNC:ON "CURR:DC";');
         end
         
         % Turn voltage measurement on
         function EnableVoltageMeasure(obj)
-            obj.write('SENS:ON; VOLT;');
+            obj.write('SENS:FUNC:ON "VOLT:DC";');
         end
         
         % Turn resistance measurement on
         function EnableResistanceMeasure(obj)
-            obj.write('SENS:ON; RES;');
+            obj.write('SENS:FUNC:ON "RES";');
         end
         
         %Turn all measurements OFF
         function DisableAllMeasure(obj)
-            obj.write('SENS:OFF:ALL;');
+            obj.write('SENS:FUNC:OFF:ALL;');
         end
         
         % read out channel B temperature
         function val = get.Measure(obj)
             tmp = obj.query('SENS:DATA:LAT?;');
             val = str2double(tmp);
+        end
+        
+        %ramp to value @ a rate in A/s or V/s
+        function ramp2value(obj,set,rate)
+            assert(isnumeric(set)&&isnumeric(rate),'values must be numeric')
+            %are we in CURR or VOLT mode
+            mode_str = strtrim(obj.query(':SOURCE:FUNCTION?'));
+            if strcmp(mode_str,'VOLT')
+                start = obj.Voltage();
+            elseif strcmp(mode_str,'CURR')
+                start = obj.Current();
+            else
+                error('cannot ramp unless if current or voltage mode')
+            end
+            time_per_step = 2E-2;
+            total_time = abs(set-start)/rate;
+            steps = abs(floor(total_time/time_per_step))+1;
+            Vals = linspace(start,set,steps);
+            for V=Vals(2:end)
+                t=clock;
+                obj.value = V;
+                while etime(clock,t) < time_per_step
+                end
+            end
         end
     end
 end
