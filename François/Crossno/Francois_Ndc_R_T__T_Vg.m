@@ -8,14 +8,14 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function data = Francois_Ndc_R_T__T_Vg(T_list, Vg_list, Vg_limit, Vg_rampRate,...
-        Nmeasurements, VWaitTime1, VWaitTime2, measurementWaitTime, SD_Rex, ...
-        SD_Vex, UniqueName)
+        Nmeasurements, TWaitTime, VWaitTime1, VWaitTime2, measurementWaitTime,...
+        SD_Rex, SD_Vex, UniqueName)
     %%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%     Internal convenience functions    %%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function plot1Dconductance(T_n)
-        change_to_figure(991); clf;
+        change_to_figure(991); clf; hold all;
         for i=1:T_n
             R = squeeze(data.R(i,:));
             mask = find(R ~= 0);
@@ -36,15 +36,17 @@ function data = Francois_Ndc_R_T__T_Vg(T_list, Vg_list, Vg_limit, Vg_rampRate,..
     end
     function plot2Dresistance()
         change_to_figure(993); clf;
-        surf(data.Vg,data.T,data.R');
+        surf(data.Vg,data.Tset,data.R);
         xlabel('Vg (Volts)'); ylabel('Temperature (K)');
-        view(2);shading flat; colorbar; box on; colormap(flipud(cmap));
+        view(2);shading flat; box on; colormap(flipud(cmap));
+        h = colorbar; ylabel(h,'Resistance (\Omega)')
     end
     function plot2Dnoise()
         change_to_figure(994); clf;
-        surf(data.Vg,data.T,data.VNdc');
+        surf(data.Vg,data.Tset,data.VNdc);
         xlabel('Vg (Volts)'); ylabel('Temperature (K)');
-        view(2);shading flat; colorbar; box on; colormap(flipud(cmap));
+        view(2);shading flat; box on; colormap(flipud(cmap));
+        h = colorbar; ylabel(h,'Noise (V)')
     end
     %measures the data
     function measure_data(T_n,Vg_n)
@@ -117,7 +119,7 @@ function data = Francois_Ndc_R_T__T_Vg(T_list, Vg_list, Vg_limit, Vg_rampRate,..
     %set constants
     SD_phase = 0;           % Phase to use on LA sine output
     SD_freq = 17.777;
-    SD_timeConstant = 0.3;  % time constant to use on LA
+    SD_timeConstant = 1;  % time constant to use on LA
     SD_coupling = 'AC';     % only use DC when measureing below 160mHz
     tolProbe=0.1;           % temperatre tolerance for the probe
     tempRampRate=2;         % 5 K/min
@@ -182,12 +184,12 @@ function data = Francois_Ndc_R_T__T_Vg(T_list, Vg_list, Vg_limit, Vg_rampRate,..
     data.raw.R = blank_raw;
     data.raw.VNdc = blank_raw;
     
-    data.T = T_list;
+    data.Tset = T_list;
     data.Vg = Vg_list;
     
     %record all the unsed settings
     %record all the unsed settings
-    data.settings.SR560.gain = 100;
+    data.settings.SR560.gain = 1001;
     data.settings.SR560.LP = 100;
     data.settings.SD.sineAmp = SD_Vex;
     data.settings.SD.sinePhase = SD_phase;
@@ -219,6 +221,9 @@ function data = Francois_Ndc_R_T__T_Vg(T_list, Vg_list, Vg_limit, Vg_rampRate,..
         %only stabilize if T is above 2, otherwise dont bother.
         if T_set > 3
             stabilizeTemperature(T_set,60,tolProbe)
+        end
+        if T_n ~=1
+            pause(TWaitTime);
         end
         
         for Vg_n=1:length(Vg_list)
@@ -253,8 +258,8 @@ function data = Francois_Ndc_R_T__T_Vg(T_list, Vg_list, Vg_limit, Vg_rampRate,..
             plot1Dconductance(T_n);
             plot1Dnoise(T_n);
             if mod(Vg_n,10) == 1
-                %plot2Dresistance();
-                %plot2Dnoise();
+                plot2Dresistance();
+                plot2Dnoise();
             end
         end
         save_data();

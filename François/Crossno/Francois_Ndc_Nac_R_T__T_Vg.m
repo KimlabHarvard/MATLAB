@@ -8,8 +8,8 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function data = Francois_Ndc_Nac_R_T__T_Vg(T_list,Vg_list, Tac_list, ...
-        Vex_initial, Vg_limit, Vg_rampRate, gain_curve, Nmeasurements, VWaitTime1, VWaitTime2, ...
-        measurementWaitTime, SD_Rex, UniqueName)
+        Vex_initial, Vg_limit, Vg_rampRate, gain_curve, Nmeasurements, ...
+        TWaitTime, VWaitTime1, VWaitTime2, measurementWaitTime, SD_Rex, UniqueName)
     %%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%     Internal convenience functions    %%%%%%%%%%%%%%%%%%%%%
@@ -141,8 +141,8 @@ function data = Francois_Ndc_Nac_R_T__T_Vg(T_list,Vg_list, Tac_list, ...
         data.std.VNac_Y(T_n,Vg_n,Tac_n) = std(data.raw.VNac_X(T_n,Vg_n,Tac_n,:));
         
         Vsd = sqrt(data.Vsd_X(T_n,Vg_n,Tac_n)^2+data.raw.Vsd_Y(T_n,Vg_n,Tac_n)^2);
-        %VNac = sqrt(data.VNac_X(T_n,Vg_n,Tac_n)^2+data.raw.VNac_Y(T_n,Vg_n,Tac_n)^2);
-        VNac = data.VNac_X(T_n,Vg_n,Tac_n);
+        VNac = sqrt(data.VNac_X(T_n,Vg_n,Tac_n)^2+data.raw.VNac_Y(T_n,Vg_n,Tac_n)^2);
+        %VNac = data.VNac_X(T_n,Vg_n,Tac_n);
         R = Vsd*SD_Rex/(SD_Vex-Vsd);
         g = gain_curve(log10(R));
         Q = 2*R*(SD_Vex/(SD_Rex+R))^2; %factor of 2 converts between rms and p2p
@@ -184,8 +184,8 @@ function data = Francois_Ndc_Nac_R_T__T_Vg(T_list,Vg_list, Tac_list, ...
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %set constants
     SD_phase = 0;           %Phase to use on LA sine output
-    SD_freq = 17.777;
-    SD_timeConstant = 0.3;  %time constant to use on LA
+    SD_freq = 7.777;
+    SD_timeConstant = 1;  %time constant to use on LA
     SD_coupling = 'AC';     %only use DC when measureing below 160mHz
     tolProbe=0.1;           %temperatre tolerance for the probe
     Nac_timeConstant = 1;
@@ -316,9 +316,13 @@ function data = Francois_Ndc_Nac_R_T__T_Vg(T_list,Vg_list, Tac_list, ...
         currentVg = Vg_list(1);
         VG.ramp2V(currentVg,Vg_rampRate);
         
-        %only stabilize if T is above 2, otherwise dont bother.
-        if T_set > 2
+        %only stabilize if T is above 3, otherwise dont bother.
+        if T_set > 3
             stabilizeTemperature(T_set,5,tolProbe)
+        end
+        
+        if T_n ~=1
+            pause(TWaitTime);
         end
         
         for Vg_n=1:length(Vg_list)

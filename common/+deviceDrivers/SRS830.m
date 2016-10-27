@@ -268,7 +268,7 @@ classdef (Sealed) SRS830 < deviceDrivers.lib.GPIB
             elseif val < obj.sens*lowerBound
                 obj.increaseSens()
             end
-            pause(obj.timeConstant*4)
+            pause(obj.timeConstant*6)
             val = obj.R;
         end
     end

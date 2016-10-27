@@ -19,10 +19,15 @@ function data = Francois_VNA_R_T__Vg(Vg_list, Vg_limit, Vg_rampRate,...
         plot(data.Vg(mask), squeeze(25813./data.R(mask)),'.','MarkerSize',15);
         xlabel('Vg (Volts)');ylabel('Conductance (h/e^2)');
         box on; grid on;
+        
+        change_to_figure(992); clf;
+        plot(data.Vg(mask), data.R(mask),'.','MarkerSize',15);
+        xlabel('Vg (Volts)');ylabel('Resistance (\Omega)');
+        box on; grid on;
     end
     
     function plotVNA()
-        change_to_figure(992); clf;
+        change_to_figure(993); clf;
         surf(data.freq*1E-6,data.Vg,20*log10(abs(data.traces)));
         xlabel('Frequency (MHz)');ylabel('Gate Voltage (V)');box on;grid on;
         xlim([min(data.freq*1E-6),max(data.freq*1E-6)]);
@@ -164,6 +169,7 @@ function data = Francois_VNA_R_T__Vg(Vg_list, Vg_limit, Vg_rampRate,...
     scrsz = get(groot,'ScreenSize');
     figure(991);set(gcf,'Position',[10, scrsz(4)/2, scrsz(3)/3-10, 0.84*scrsz(4)/2]);
     figure(992);set(gcf,'Position',[10+2*scrsz(3)/3, scrsz(4)/2, scrsz(3)/3-10, 0.84*scrsz(4)/2]);
+    figure(993);set(gcf,'Position',[10+scrsz(3)/3, scrsz(4)/2, scrsz(3)/3-10, 0.84*scrsz(4)/2]);
     tic
     %%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
