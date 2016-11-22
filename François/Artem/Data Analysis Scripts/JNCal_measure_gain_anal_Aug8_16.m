@@ -1,22 +1,87 @@
-%before running this, load the matlab struct file with calData
+%combine lots of files together
+%clearvars;
 
-tempFitRange=[min(calData.tempList) max(calData.tempList)];
-tempFitIndices=1:3;
+%clf;
+%clear all;
+%close all;
+%fclose all;
+
+loadTheData=true;
+
+%aug 8,9
+indices=[1 2 3 0 0; 4 5 6 7 0; 8 9 10 11 0; 12 13 14 15 0; 16 17 18 19 0; 20 21 22 23 0; 24 25 26 27 0; 28 29 30 31 32; 33 34 35 36 0; 38 39 40 41 0; 42 43 44 45 46];
+gateVoltageList=[-1:.05:-.65   -.6:.01:-.2 -.15:.05:.2 .3:.1:1];
+tempList=[3 4 6 8 10 12 14 16 18 20 25 30 35 40 45 50 55 60 65 70 75 80 85 90 95 100:10:200 220:10:300];
+
+tempFitIndices=[8:19]; %8-19 is 16K to 60K
+tempFitIndices=[1:19]; %1-19 is 3K to 60K
+%tempFitIndices=[1:11]; %1-19 is 3K to 25K
+
+
+%aug 10
+%indices=[1 2 3 0 0; 4 5 6 7 0];
+%gateVoltageList=[-1:.05:-.65   -.6:.01:-.2 -.15:.05:.2 .3:.1:1];
+%tempList=[3 4 6 8 10 12 14];
+
+%aug 12
+%indices=[1 2 3 4 0; 5 6 7 0 0];
+%tempList=[100 105 110 115 120 125 130];
+
+%aug 13
+%indices=[1 2 3 0 0; 4 0 0 0 0];
+%tempList=[100 105 110 115];
+
+
+
+if(loadTheData)
+    [s1, s2]=size(indices);
+    count=1;
+    for(i=1:s1)
+
+        myIndices=[];
+        myIndices2=[];
+        for j=1:s2
+            if(indices(i,j)~=0)
+                myIndices=[myIndices indices(i,j)];
+                myIndices2=[myIndices2 count];
+                count=count+1;
+            end
+        end
+
+        load(['file' num2str(i) '.mat']);
+        %data=calData;
+        %indices(i,:)
+        temp((myIndices2),:)=data.temp(1:length(myIndices),:);
+        johnsonNoise((myIndices2),:)=data.johnsonNoise(1:length(myIndices),:);
+        johnsonNoiseErr((myIndices2),:)=data.johnsonNoiseErr(1:length(myIndices),:);
+        resistance((myIndices2),:)=data.resistance(1:length(myIndices),:);
+    end
+end
+
+%manually shift the data to fix it
+%aug 8,9
+% johnsonNoise(20:end,:)=johnsonNoise(20:end,:)-.203e-8;
+% johnsonNoise(20,:)=johnsonNoise(20,:)-.1e-8;
+% 
+% johnsonNoise(27:end,:)=johnsonNoise(27:end,:)-.01e-8;
+% johnsonNoise(27,:)=johnsonNoise(27,:)+.08e-8;
+
+
 
 %raw data
 figure(1);
 clf;
 subplot(2,2,1);
-%plot(calData.tempList,calData.johnsonNoise(:,:),'Color',[.85 .85 .85])
+plot(tempList,johnsonNoise(:,:),'Color',[.85 .85 .85])
 hold on; grid on;
-plot(calData.tempList,calData.johnsonNoise(:,1:end)','.-')
+plot(tempList,johnsonNoise(:,1:4:end)','.-')
 xlabel('T(K)');
 ylabel('Johnson Noise P_P0 (W)');
-title('graphene 8/21/16 all gates');
+title('graphene 8/13/16 all gates');
 hold off;
 
 subplot(2,2,3);
-surf(calData.tempList,calData.gateVoltageList,calData.johnsonNoise(:,:)','EdgeAlpha',0)
+surf(tempList,gateVoltageList,johnsonNoise(:,:)','EdgeAlpha',0)
 xlabel('T(K)');
 ylabel('gate voltage (V)');
 colormap('hot');
@@ -26,14 +91,13 @@ shading interp;
 title('Johnson Noise Power (W)');
 
 subplot(2,2,2);
-grid on;
-plot(calData.gateVoltageList,calData.resistance);
+plot(gateVoltageList,resistance);
 xlabel('gate voltage (V)');
 ylabel('resistance (Ohms)');
 title('graphene 8/13/16 all gates');
 
 subplot(2,2,4);
-surf(calData.tempList,calData.gateVoltageList,calData.resistance','EdgeAlpha',0);
+surf(tempList,gateVoltageList,resistance','EdgeAlpha',0);
 xlabel('T(K)');
 ylabel('gate voltage (V)');
 colormap('hot');
@@ -48,8 +112,8 @@ clf; hold on; grid on;
 legendList=cell(length(tempFitIndices),1);
 ii=1;
 for(i=tempFitIndices)
-    plot(calData.resistance(i,:),calData.johnsonNoise(i,:),'.-')
-    legendList(ii)={sprintf('%g K',calData.tempList(i))};
+    plot(resistance(i,:),johnsonNoise(i,:),'.-')
+    legendList(ii)={sprintf('%g K',tempList(i))};
     ii=ii+1;
 end
 title('Graphene Johnson Noise Calibration, P_P vs. R for gate sweeps');
@@ -62,10 +126,9 @@ clf; hold on; grid on;
 %for all temps, fit a cubic polynomial to johnson noise power vs resistance
 legendList=cell(length(tempFitIndices),1);
 ii=1;
-%for(i=1:10:length(tempFitIndices))
 for(i=tempFitIndices)
-    plot(calData.resistance(i,:),calData.johnsonNoise(i,:),'o-','MarkerSize',3)
-    legendList(ii)={sprintf('%g K',calData.tempList(i))};
+    plot(resistance(i,:),johnsonNoise(i,:),'o-','MarkerSize',3)
+    legendList(ii)={sprintf('%g K',tempList(i))};
     ii=ii+1;
 end
 xl=xlim;
@@ -73,13 +136,12 @@ xfine21=linspace(xl(1),xl(2),5000);
 rctr=2000;
 clear myPolyFit
 ii=1;
-%for(i=1:10:length(tempFitIndices))
 for(i=tempFitIndices)
     %myX21=resistance(i,:);
     %myY21=johnsonNoise(i,:);
     %fitObject=fit(myX21',myY21','poly3');
     %plot(fitObject);
-    myPolyFit(ii,:)=polyfit(calData.resistance(i,:)-rctr,calData.johnsonNoise(i,:),2);
+    myPolyFit(ii,:)=polyfit(resistance(i,:)-rctr,johnsonNoise(i,:),3);
     yeval=polyval(myPolyFit(ii,:),xfine21-rctr);
     plot(xfine21,yeval,'Color','Red'); 
     ii=ii+1;
@@ -142,11 +204,11 @@ legend(legendList);
 % title(['johnson noise derivative (W/K), moving 2-point ' sprintf('at %g K',tempList(sam))]);
 
 figure(4); %scatter plot raw data
-trimmedJohnsonNoise=calData.johnsonNoise(tempFitIndices,:);
-trimmedResistance=calData.resistance(tempFitIndices,:);
-trimmedTemps=calData.tempList(tempFitIndices);
+trimmedJohnsonNoise=johnsonNoise(tempFitIndices,:);
+trimmedResistance=resistance(tempFitIndices,:);
+trimmedTemps=tempList(tempFitIndices);
 trimmedTempsMat=[];
-for(p=1:length(calData.gateVoltageList))
+for(p=1:length(gateVoltageList))
     trimmedTempsMat(:,p)=trimmedTemps;
 end
 scatter3(trimmedTempsMat(:),trimmedResistance(:),trimmedJohnsonNoise(:));

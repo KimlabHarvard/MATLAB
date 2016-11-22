@@ -1,13 +1,13 @@
 %sweep temp and gate, measure DC johnsn noise
 
-function JNCal_measure_gain_analog(UniqueName, start_dir, numberOfCycles, tempWaitTime, temperatureWindow, tempRampRate, resistance, leadResistance, gateVoltageList, tempList, lockInTimeConstant)
+function Francois_T_Vg___R_NDCAnalog(UniqueName, start_dir, numberOfCycles, tempWaitTime, temperatureWindow, tempRampRate, bigResistor, leadResistance, gateVoltageList, tempList, lockInTimeConstant)
     clear temp StartTime CoolLogData gate;
     close all;
     fclose all;
     
     figure(1992);
    
-    cycleTime=3.3;
+    cycleTime=3.36;
     
     %resistanceMeasExcitationCurrentACVrms=1e-6; %1 microAmp;
     gateVoltageStep=0.01;
@@ -16,7 +16,7 @@ function JNCal_measure_gain_analog(UniqueName, start_dir, numberOfCycles, tempWa
     
 
     StartTime = clock;
-    FileName = strcat('JNCal_measure_gain_', datestr(StartTime, 'yyyy-mm-dd_HH-MM-SS'),'_',UniqueName,'.mat');
+    FileName = strcat('Francois_T_Vg___R_NDCAnalog_', datestr(StartTime, 'yyyy-mm-dd_HH-MM-SS'),'_',UniqueName,'.mat');
     
     dmm=deviceDrivers.Keysight34401A();
     dmm.connect('6');
@@ -36,9 +36,6 @@ function JNCal_measure_gain_analog(UniqueName, start_dir, numberOfCycles, tempWa
     topLockIn.connect('1');
     topLockIn.timeConstant=lockInTimeConstant;
     %topLockIn.sineAmp=resistanceMeasExcitationCurrentACVrms;
-
-    
-    
     
   
     estTime=length(tempList)*length(gateVoltageList)*numberOfCycles*cycleTime/60/60+length(tempList)*tempWaitTime/60/60+(max(tempList)-min(tempList))/tempRampRate/60
@@ -56,21 +53,22 @@ function JNCal_measure_gain_analog(UniqueName, start_dir, numberOfCycles, tempWa
     
 
     calData=struct('time',0,'myClock',0,'temp',0,'johnsonNoise',0,'johnsonNoiseErr',0,...
-        'T_noise',0,'tempList',0,'gateVoltageList',0,...
-        'resistance',0);
+        'tempList',0,'gateVoltageList',0,...
+        'resistance',0,'excitationCurrent',0,'leadResistance',0);
     
     %initialize everything to NaN so there aren't any zeros when plotting!
     %data3D=zeros(length(tempList),length(gateVoltageList),length(lowBiasVoltageList))/0;
     data2D=zeros(length(tempList),length(gateVoltageList))/0;
     calData.time=data2D;
-    calData.myClock=data2D;
+    calData.myClock=zeros(length(tempList),length(gateVoltageList),6)/0;
     calData.temp=data2D;
     
-    calData.T_noise=data2D;
     calData.resistance=data2D;
+    calData.excitationCurrent=data2D;
     calData.dP_P_by_dT=data2D;
     calData.johnsonNoise=data2D;
     calData.johnsonNoiseErr=data2D;
+    calData.leadResistance=leadResistance;
     
     calData.gateVoltageList=gateVoltageList;
     calData.tempList=tempList;
@@ -107,6 +105,7 @@ for i=1:length(tempList)
         %measure the johnson noise now
         [calData.johnsonNoise(i,j), calData.johnsonNoiseErr(i,j)]=measureJohnsonNoise(numberOfCycles);
         calData.time=etime(clock,startTime);
+        calData.myClock(i,j,:)=clock;
         
         
         
@@ -119,6 +118,7 @@ for i=1:length(tempList)
         %measure resistance, record it
         myResistance=measureLockInResistance();
         calData.resistance(i,j)=myResistance;
+        calData.excitationCurrent(i,j)=topLockIn.sineAmp/(myResistance+bigResistor)
         
         change_to_figure(4);
         plot(gateVoltageList,calData.resistance','.-');
@@ -186,7 +186,7 @@ end %end temp for loop
         topLockIn.autoSens();
         topVoltage=topLockIn.sineAmp;
         bottomVoltage=topLockIn.R;
-        res=resistance*bottomVoltage/(topVoltage-bottomVoltage)-leadResistance;
+        res=bigResistor*bottomVoltage/(topVoltage-bottomVoltage)-leadResistance;
     end
 
     function rampToGateVoltage(v)

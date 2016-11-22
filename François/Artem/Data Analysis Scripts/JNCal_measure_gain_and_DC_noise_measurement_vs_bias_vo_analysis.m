@@ -275,7 +275,7 @@ elseif(strcmp(fitType,'coth'))
         yData=yData*10000000000;
         if(fitTemp)
             
-            myFitType=fittype(sprintf('10000000000*%e*(2*%.9e*V*F*(coth(%.9e*V/(2*%.9e*T)))+4*%.9e*T*(1-F))+C',gain(j),e,e,k_B,k_B){ymy,'dependent',{'y'},'independent',{'V'},'coefficients',{'F','C','T'});
+            myFitType=fittype(sprintf('10000000000*%e*(2*%.9e*V*F*(coth(%.9e*V/(2*%.9e*T)))+4*%.9e*T*(1-F))+C',gain(j),e,e,k_B,k_B),'dependent',{'y'},'independent',{'V'},'coefficients',{'F','C','T'});
             %myFitType=fittype('C+T*V+F*V*V','dependent',{'y'},'independent',{'V'},'coefficients',{'F','C','T'});
             myFitOptions=fitoptions('Method','NonlinearLeastSquares','MaxFunEvals',1200,'StartPoint', [1 0 fanoTemp],'TolX',1e-20,'TolFun',1e-20,'Robust','LAR');
             [myFit,gof,output]=fit(xData,yData,myFitType,myFitOptions);

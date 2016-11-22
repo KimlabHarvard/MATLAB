@@ -44,7 +44,7 @@ classdef FrancoisLakeShore335 < deviceDrivers.Lakeshore335
     methods(Access=protected)
         function adjustHeater1ToTemp(obj,val)
             %val is the correct temp here
-            pid=[interp1(obj.temps1, obj.P1, val), interp1(obj.temps1, obj.I1, val), interp1(obj.temps1, obj.D1, val)];
+            pid=[interp1(obj.temps1, obj.P1, val), interp1(obj.temps1, obj.I1, val), interp1(obj.temps1, obj.D1, val)]
             %the interpolation above is correct
             obj.PID1=pid;
             if(val<obj.lowLimit1)
