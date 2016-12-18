@@ -13,8 +13,8 @@ indices=[1 2 3 0 0; 4 5 6 7 0; 8 9 10 11 0; 12 13 14 15 0; 16 17 18 19 0; 20 21 
 gateVoltageList=[-1:.05:-.65   -.6:.01:-.2 -.15:.05:.2 .3:.1:1];
 tempList=[3 4 6 8 10 12 14 16 18 20 25 30 35 40 45 50 55 60 65 70 75 80 85 90 95 100:10:200 220:10:300];
 
-tempFitIndices=[8:19]; %8-19 is 16K to 60K
-tempFitIndices=[1:19]; %1-19 is 3K to 60K
+tempFitIndices=[8:19]; %8-19 is 16K to 65K
+tempFitIndices=[1:19]; %1-19 is 3K to 65K
 %tempFitIndices=[1:11]; %1-19 is 3K to 25K
 
 
@@ -51,12 +51,18 @@ if(loadTheData)
         load(['file' num2str(i) '.mat']);
         %data=calData;
         %indices(i,:)
+        calData.temp((myIndices2),:)=data.temp(1:length(myIndices),:);
+        calData.johnsonNoise((myIndices2),:)=data.johnsonNoise(1:length(myIndices),:);
+        calData.johnsonNoiseErr((myIndices2),:)=data.johnsonNoiseErr(1:length(myIndices),:);
+        calData.resistance((myIndices2),:)=data.resistance(1:length(myIndices),:);
         temp((myIndices2),:)=data.temp(1:length(myIndices),:);
         johnsonNoise((myIndices2),:)=data.johnsonNoise(1:length(myIndices),:);
         johnsonNoiseErr((myIndices2),:)=data.johnsonNoiseErr(1:length(myIndices),:);
         resistance((myIndices2),:)=data.resistance(1:length(myIndices),:);
+        
     end
 end
+calData.tempList=tempList;
 
 %manually shift the data to fix it
 %aug 8,9
@@ -72,14 +78,29 @@ end
 figure(1);
 clf;
 subplot(2,2,1);
-plot(tempList,johnsonNoise(:,:),'Color',[.85 .85 .85])
-hold on; grid on;
-plot(tempList,johnsonNoise(:,1:4:end)','.-')
+
+
+figure(1001);
+clf;
+hold on;
+for(j=1:length(gateVoltageList))
+    h=plot(tempList(tempFitIndices),johnsonNoise(tempFitIndices,j),'-','Color','k');
+    h.Color(4) = 0.5;
+    set(get(get(h,'Annotation'),'LegendInformation'),'IconDisplayStyle','off');
+end
+for(j=colorIndexList)
+     h=plot(tempList(tempFitIndices),johnsonNoise(tempFitIndices,j),'-',...
+            'LineWidth',2,...
+            'MarkerSize',15,...
+            'DisplayName',sprintf('%g V',fanoData.gateVoltageList(j)));
+end
 xlabel('T(K)');
-ylabel('Johnson Noise P_P0 (W)');
-title('graphene 8/13/16 all gates');
+ylabel('Johnson Noise Power (W)');
+title('Graphene Raw Calibration Data');
+l = legend('show','Location','best');
 hold off;
 
+figure(1)
 subplot(2,2,3);
 surf(tempList,gateVoltageList,johnsonNoise(:,:)','EdgeAlpha',0)
 xlabel('T(K)');
@@ -93,7 +114,7 @@ title('Johnson Noise Power (W)');
 subplot(2,2,2);
 plot(gateVoltageList,resistance);
 xlabel('gate voltage (V)');
-ylabel('resistance (Ohms)');
+ylabel('resistance (\Omega)');
 title('graphene 8/13/16 all gates');
 
 subplot(2,2,4);
@@ -104,7 +125,7 @@ colormap('hot');
 colorbar();
 view([0 0 1]);
 shading interp;
-title('Resistance (Ohms)');
+title('Resistance (\Omega)');
 
 figure(2) %raw data, P vs R for all T
 clf; hold on; grid on;
@@ -117,7 +138,7 @@ for(i=tempFitIndices)
     ii=ii+1;
 end
 title('Graphene Johnson Noise Calibration, P_P vs. R for gate sweeps');
-xlabel('Resistance (Ohms)');
+xlabel('Resistance (\Omega)');
 ylabel('Johnson Noise (W)');
 legend(legendList);
 
@@ -147,7 +168,7 @@ for(i=tempFitIndices)
     ii=ii+1;
 end
 title('Graphene Johnson Noise Calibration, cubic fits to P_P vs. R for gate sweeps');
-xlabel('Resistance (Ohms)');
+xlabel('Resistance (\Omega)');
 ylabel('Johnson Noise (W)');
 legend(legendList);
 
@@ -191,7 +212,7 @@ legend(legendList);
 % hold on;
 % sam=1;
 % plot(resistanceAvg(sam,:),johnsonNoiseDerivative(sam,:))
-% xlabel('R (ohms)')
+% xlabel('R (\Omega)')
 % ylabel('gain, i.e. the slope dP_{P0}/dT (W/K)')
 % title(sprintf('gain trace over the dirac peak sweeping V_g, at %g K, averaged over 2 temps',mean(tempList(sam:sam+1))));
 % 
@@ -213,7 +234,7 @@ for(p=1:length(gateVoltageList))
 end
 scatter3(trimmedTempsMat(:),trimmedResistance(:),trimmedJohnsonNoise(:));
 xlabel('T(K)');
-ylabel('R(Ohms)');
+ylabel('R(\Omega)');
 zlabel('Noise Power (W)');
 title('Raw calibration data, 3D scatter plot');
 
@@ -250,7 +271,7 @@ Z=fittedJohnsonNoise(:);
 % for(sam=2:17)
 %     subplot(2,3,sam-1)
 %     plot(resistanceAvg(sam,:),johnsonNoiseDerivative(sam,:),'.-')
-%     xlabel('R (ohms)')
+%     xlabel('R (\Omega)')
 %     ylabel('gain, i.e. the slope dP_{P0}/dT (W/K)')
 %     title(sprintf('%g K',T_derivative2(sam)));    
 % end
