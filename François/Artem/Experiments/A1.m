@@ -5,7 +5,7 @@ start_dir='C:\Users\Artem\My Documents\Artem Data\Misc\';
 tempRampRate=3; %K/min
 tempWaitTime=30; %seconds
 tempWindow=0.1;
-tempList=[300:-25:100 90:-10:40 35:-5:10 8 6 4 3];
+tempList=3;[3:-25:100 90:-10:40 35:-5:10 8 6 4 3];
 
 cycleTime=1; %seconds
 estTime=(length(tempList)*(tempWaitTime+cycleTime)+(max(tempList)-min(tempList))/tempRampRate*60)/3600;

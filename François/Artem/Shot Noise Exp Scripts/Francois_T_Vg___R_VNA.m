@@ -1,4 +1,4 @@
-function Francois_T_Vg___R_VNA(UniqueName, start_dir, tempWaitTime, temperatureWindow, tempRampRate, resistance, leadResistance, gateVoltageList, tempList, lockInTimeConstant)
+function Francois_T_Vg___R_VNA(UniqueName, start_dir, tempWaitTime, temperatureWindow, tempRampRate, resistanceExternal, leadResistance, gateVoltageList, tempList, lockInTimeConstant)
     clear temp StartTime CoolLogData gate;
     close all;
     fclose all;
@@ -12,11 +12,11 @@ function Francois_T_Vg___R_VNA(UniqueName, start_dir, tempWaitTime, temperatureW
     
 
     StartTime = clock;
-    FileName = strcat('JNCal_measure_gain_', datestr(StartTime, 'yyyy-mm-dd_HH-MM-SS'),'_',UniqueName,'.mat');
+    FileName = strcat(datestr(StartTime, 'yyyy-mm-dd_HH-MM-SS'),'_Francois_T_Vg___R_VNA_',UniqueName,'.mat');
     
     VNA = deviceDrivers.AgilentE8363C();
-    VNA.connect('140.247.189.8');
-    VNA.trigger_source='manual';
+    VNA.connect('140.247.189.204');
+    VNA.trigger_source='immediate';
     
     tempController=FrancoisLakeShore335();
     tempController.connect('12');
@@ -109,8 +109,8 @@ for i=1:length(tempList)
         
         %wait for lock-in values to stabilize if needed
         time2=etime(clock,startTime2);
-        if(time2<10*lockInTimeConstant)
-            pause(10*lockInTimeConstant-time2);
+        if(time2<4*lockInTimeConstant)
+            pause(4*lockInTimeConstant-time2);
         end
         
         %measure resistance, record it
@@ -170,7 +170,7 @@ end %end temp for loop
         %topLockIn.autoSens();
         topVoltage=topLockIn.sineAmp;
         bottomVoltage=topLockIn.R;
-        res=resistance*bottomVoltage/(topVoltage-bottomVoltage)-leadResistance;
+        res=resistanceExternal*bottomVoltage/(topVoltage-bottomVoltage)-leadResistance;
     end
 
     function rampToGateVoltage(v)

@@ -9,13 +9,13 @@ classdef FrancoisLakeShore335 < deviceDrivers.Lakeshore335
         %vector of temps, and calculated P's I's and D's for PID loop
         %for heater 1
         temps1= [0   10  15  20  60  100 150 210 290 400];
-        P1=0.75*[700 450 300 290 340 270 240 200 175 175]
+        P1=0.75*[700 450 300 290 340 270 240 200 175 175];
         I1=     [300 300 300 132 46  22  19  17  16  16];
         D1=   0*[30  30  30  30  30  30  30  30  30  30];
         
         
         temps2=  [0  5   10  20  35  60  100 150 210 290 400];
-        P2=   8.5*[30 30  30  30  30  30  30  30  30  30  30]
+        P2=   8.5*[30 30  30  30  30  30  30  30  30  30  30];
         I2=   10*[30 30  30  30  30  30  30  30  30  30  30];
         D2=   0*[30 30  30  30  30  30  30  30  30  30  30];
         
@@ -44,7 +44,7 @@ classdef FrancoisLakeShore335 < deviceDrivers.Lakeshore335
     methods(Access=protected)
         function adjustHeater1ToTemp(obj,val)
             %val is the correct temp here
-            pid=[interp1(obj.temps1, obj.P1, val), interp1(obj.temps1, obj.I1, val), interp1(obj.temps1, obj.D1, val)]
+            pid=[interp1(obj.temps1, obj.P1, val), interp1(obj.temps1, obj.I1, val), interp1(obj.temps1, obj.D1, val)];
             %the interpolation above is correct
             obj.PID1=pid;
             if(val<obj.lowLimit1)

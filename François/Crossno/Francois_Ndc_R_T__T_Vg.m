@@ -34,6 +34,23 @@ function data = Francois_Ndc_R_T__T_Vg(T_list, Vg_list, Vg_limit, Vg_rampRate,..
         xlabel('Vg (Volts)');ylabel('V_{noise}');
         box on; grid on;
     end
+    function plotRvsT()
+        change_to_figure(991); clf; hold all;
+        R = squeeze(data.R);
+        mask = find(R ~= 0);
+        plot(data.Tset(mask), R(mask),'.','MarkerSize',15);
+
+        xlabel('Temperature (K)');ylabel('Resistance (\Omega)');
+        box on; grid on;
+    end
+    function plotNvsT()
+        change_to_figure(992); clf; hold all;
+        VNdc = squeeze(data.VNdc);
+        mask = find(VNdc ~= 0);
+        plot(data.Tset(mask), VNdc(mask),'.','MarkerSize',15);
+        xlabel('Temperature (K)');ylabel('V_{noise}');
+        box on; grid on;
+    end
     function plot2Dresistance()
         change_to_figure(993); clf;
         surf(data.Vg,data.Tset,data.R);
@@ -255,15 +272,17 @@ function data = Francois_Ndc_R_T__T_Vg(T_list, Vg_list, Vg_limit, Vg_rampRate,..
                 end
             end
             
-            plot1Dconductance(T_n);
-            plot1Dnoise(T_n);
+            %plot1Dconductance(T_n);
+            %plot1Dnoise(T_n);
             if mod(Vg_n,10) == 1
-                plot2Dresistance();
-                plot2Dnoise();
+                %plot2Dresistance();
+                %plot2Dnoise();
             end
         end
         save_data();
         toc
+        plotRvsT();
+        plotNvsT();
     end
     
     %%
