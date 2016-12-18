@@ -1,10 +1,10 @@
 %load 
 
 tempIndex=1;
-fanoFitStart=3; %the value of eV/kT where to begin fitting for the fano factor
-fanoFitEnd=40; %the value of eV/kT where to end fitting for the fano factor
+fanoFitStart=5; %the value of eV/kT where to begin fitting for the fano factor
+fanoFitEnd=10; %the value of eV/kT where to end fitting for the fano factor
 
-fanoData=data;
+%fanoData=data;
 %data=fanoData;
 
 k_B=1.38064852e-23;
@@ -19,18 +19,6 @@ for(i=1:length(fanoData.biasVoltageList))
         break;
     end
 end
-
-
-
-%find the index of zero gate voltage
-theZero2=1e-15;
-for(i=1:length(fanoData.gateVoltageList))
-    if(abs(fanoData.gateVoltageList(i))<theZero2)
-        fanoData.gateVoltageList(i)=0;
-        break;
-    end
-end
-
 
 figure(1);
 subplot(2,2,1);
@@ -58,47 +46,10 @@ for(j=1:length(fanoData.gateVoltageList)-0)
 end
 title(sprintf('graphene %gK',fanoData.tempList(tempIndex)));
 xlim([min(fanoData.biasVoltageList*e/(k_B*fanoData.tempList(tempIndex))) max(fanoData.biasVoltageList*e/(k_B*fanoData.tempList(tempIndex)))]*1.05);
-xlabel('eV_{DS}/(kT)');
+xlabel('eV_B/(kT) (dimensionless)');
 ylabel('noise power offset(W)');
 grid on;
 
-figure(999);
-clf;
-hold on;
-%65 gate voltages
-
-% for(p=n:-1:1)
-%     plot(xi2(p,:),zi2(p,:),'o-','MarkerSize',4);
-%     
-% end
-clear legendList;
-colorIndexList=[3:10:length(fanoData.gateVoltageList)];
-legendList=cell(length(colorIndexList),1);
-p=1;
-for(j=1:length(fanoData.gateVoltageList)-0)
-    if(~ismember(j,colorIndexList))
-        mypwr=fanoData.power(tempIndex,j,:);
-        h=plot(squeeze(fanoData.biasVoltage(tempIndex,j,:))*e/(k_B*fanoData.tempList(tempIndex)),squeeze(mypwr)*1e9,'-','Color','k');
-        h.Color(4) = 0.5;
-        set(get(get(h,'Annotation'),'LegendInformation'),'IconDisplayStyle','off');
-    end;
-end
-for(j=colorIndexList)
-    mypwr=fanoData.power(tempIndex,j,:);
-    plot(squeeze(fanoData.biasVoltage(tempIndex,j,:))*e/(k_B*fanoData.tempList(tempIndex)),squeeze(mypwr)*1e9,'-',...
-            'LineWidth',2,...
-            'MarkerSize',15,...
-            'DisplayName',sprintf('%g V',fanoData.gateVoltageList(j)));
-end
-title('Grahpene 3K Shot Noise Raw Data')
-xlim([min(fanoData.biasVoltageList*e/(k_B*fanoData.tempList(tempIndex))) max(fanoData.biasVoltageList*e/(k_B*fanoData.tempList(tempIndex)))]*1.05);
-xlabel('eV_{DS}/(kT)');
-ylabel('Noise Power (nW)');
-xlim([-150 150]);
-l = legend('show','Location','best');
-
-
-figure(1);
 
 subplot(2,2,2);
 hold on;
@@ -108,7 +59,7 @@ for(j=1:length(fanoData.gateVoltageList)-0)
 end
 title(sprintf('graphene %gK',fanoData.tempList(tempIndex)));
 xlim([min(fanoData.biasVoltageList*e/(k_B*fanoData.tempList(tempIndex))) max(fanoData.biasVoltageList*e/(k_B*fanoData.tempList(tempIndex)))]*1.05);
-xlabel('eV_{DS}/(kT)');
+xlabel('eV_B/(kT) (dimensionless)');
 ylabel('resistance (R)');
 grid on
 
@@ -121,7 +72,7 @@ view([0 0 1]);
 shading interp;
 colorbar();
 title(sprintf('graphene noise power (W) at %gK',fanoData.tempList(tempIndex)));
-xlabel('eV_{DS}/(kT)');
+xlabel('eV_B/(kT) (dimensionless)');
 ylabel('gate votlage V_g (V)');
 
 subplot(2,2,4);
@@ -132,7 +83,7 @@ view([0 0 1]);
 shading interp;
 colorbar();
 title(sprintf('graphene resistance (R) at %gK',fanoData.tempList(tempIndex)));
-xlabel('eV_{DS}/(kT)');
+xlabel('eV_B/(kT) (dimensionless)');
 ylabel('gate votlage V_g (V)');
 
 
@@ -153,7 +104,7 @@ for(j=1:length(fanoData.gateVoltageList))
     plot(squeeze(voltage2(1,j,:))*e/(k_B*fanoData.tempList(tempIndex)),smooth(squeeze(differentialResistance(1,j,:)),1),'.-');
 end
 
-ylabel('two-point differential Resistance (\Omega)');
+ylabel('two-point differential Resistance (Ohms)');
 title(sprintf('graphene %gK',fanoData.tempList(tempIndex)));
 xlim([min(fanoData.biasVoltageList*e/(k_B*fanoData.tempList(tempIndex))) max(fanoData.biasVoltageList*e/(k_B*fanoData.tempList(tempIndex)))]*1.05);
 
@@ -189,8 +140,8 @@ for(j=1:length(fanoData.gateVoltageList)-0)
     %plot(squeeze(voltage2(1,j,:)),tsmovavg(squeeze(differentialResistance(1,j,:)),'s',1,1));
     plot(squeeze(voltage(tempIndex,j,:))*e/(k_B*fanoData.tempList(tempIndex)),smooth(differentialResistance2(j,:),1),'.-');
 end
-xlabel('eV_{DS}/(kT)');
-ylabel('three-point differential Resistance (\Omega)');
+xlabel('eV_B/(kT) (dimensionless)');
+ylabel('three-point differential Resistance (Ohms)');
 title(sprintf('graphene %gK',fanoData.tempList(tempIndex)));
 xlim([min(fanoData.biasVoltageList*e/(k_B*fanoData.tempList(tempIndex))) max(fanoData.biasVoltageList*e/(k_B*fanoData.tempList(tempIndex)))]*1.05);
 
@@ -225,7 +176,7 @@ for(j=1:length(fanoData.gateVoltageList)-0)
     semilogy(squeeze(voltage(tempIndex,j,:))*e/(k_B*fanoData.tempList(tempIndex)),smooth(noisePower(j,:),1),'.-');
     hold on;
 end
-xlabel('eV_{DS}/(kT)');
+xlabel('eV_B/(kT) (dimensionless)');
 ylabel('noise power (K)');
 grid on;
 title(sprintf('noise power vs. bias voltage, corrected by variable gain and noise temperature, at %g K',fanoData.tempList(tempIndex)));
@@ -247,33 +198,21 @@ for(j=1:length(fanoData.gateVoltageList)-0)
     plot(squeeze(voltage(tempIndex,j,:))*e/(k_B*fanoData.tempList(tempIndex)),smooth(noisePower(j,:),1),'.-');
     hold on;
 end
-xlabel('eV_{DS}/(kT)');
+xlabel('eV_B/(kT) (dimensionless)');
 ylabel('noise power (K)');
 grid on;
 subplot(2,2,4);
-figure(1000);
-clf;
-hold on;
 for(j=1:length(fanoData.gateVoltageList)-0)
-    if(~ismember(j,colorIndexList))
-        h=plot(squeeze(voltage(tempIndex,j,:))*e/(k_B*fanoData.tempList(tempIndex)),smooth(noisePower(j,:),1),'-','Color','k');
-        h.Color(4) = 0.5;
-        set(get(get(h,'Annotation'),'LegendInformation'),'IconDisplayStyle','off');  
-    end
-end
-for(j=colorIndexList)
-    plot(squeeze(voltage(tempIndex,j,:))*e/(k_B*fanoData.tempList(tempIndex)),smooth(noisePower(j,:),1),'-',...
-            'LineWidth',2,...
-            'MarkerSize',15,...
-            'DisplayName',sprintf('%g V',fanoData.gateVoltageList(j)));
+%for(j=30:40);
+    %plot(squeeze(voltage2(1,j,:)),tsmovavg(squeeze(differentialResistance(1,j,:)),'s',1,1));
+    plot(squeeze(voltage(tempIndex,j,:))*e/(k_B*fanoData.tempList(tempIndex)),smooth(noisePower(j,:),1),'.-');
     hold on;
 end
-xlabel('eV_{DS}/(kT)');
-ylabel('Noise Power (K)');
+xlabel('eV_B/(kT) (dimensionless)');
+ylabel('noise power (K)');
+grid on;
 title(sprintf('noise power vs. bias voltage, corrected by variable gain and noise temperature, at %g K',fanoData.tempList(tempIndex)));
-title('Grahpene 3K Shot Noise')
-l = legend('show','Location','best');
-xlim([-150 150]);
+title('Grahpene 08/19/16 180054')
 figure(5);
 clf;
 surf(fanoData.gateVoltageList(1:end-0),fanoData.biasVoltageList*e/(k_B*fanoData.tempList(tempIndex)),noisePower','EdgeAlpha',0)
@@ -292,9 +231,6 @@ vmin=fanoFitStart*k_B*fanoData.tempList(tempIndex)/e;
 vmax=fanoFitEnd*k_B*fanoData.tempList(tempIndex)/e;
 fanoFactorNegative=[];
 fanoFactorPositive=[];
-fanoFactorNegativeErr=[];
-fanoFactorPositiveErr=[];
-ci=[];
 for(j=1:length(fanoData.gateVoltageList)-0)
     negativeBiasVoltages=[];
     positiveBiasVoltages=[];
@@ -316,41 +252,24 @@ for(j=1:length(fanoData.gateVoltageList)-0)
     try
         myFitNegative=fit(negativeBiasVoltages',negativeBiasNoisePower','poly1');
         fanoFactorNegative(j)=myFitNegative.p1*4*k_B/(2*e);
-        ci=confint(myFitNegative);
-        fanoFactorNegativeErr(j)=(ci(2,1)-ci(1,1))*4*k_B/(2*e)/4; % divide by 4 to get 1-sigma
-        
         myFitPositive=fit(positiveBiasVoltages',positiveBiasNoisePower','poly1');
         fanoFactorPositive(j)=myFitPositive.p1*4*k_B/(2*e);
-        ci=confint(myFitPositive);
-        fanoFactorPositiveErr(j)=(ci(2,1)-ci(1,1))*4*k_B/(2*e)/4; % divide by 4 to get 1-sigma
     catch
         %j
         %negativeBiasVoltages
         %negativeBiasNoisePower
         %positiveBiasVoltages
         %positiveBiasNoisePower
-        %myFitNegative
-        
-        %negativeBiasVoltages
-        %negativeBiasNoisePower
-        
-        fanoFactorNegative(j)=0;
-        fanoFactorPositive(j)=0;
-        fanoFactorNegativeErr(j)=0;
-        fanoFactorPositiveErr(j)=0;
+         fanoFactorNegative(j)=NaN;
+         fanoFactorPositive(j)=NaN;
     end
 end
-figure(6);
-clf;
-hold on;
-%plot(fanoData.gateVoltageList(1:end-0),abs(fanoFactorNegative)*0.5+fanoFactorPositive*0.5);%,'.',fanoData.gateVoltageList(1:end-0),fanoFactorPositive,'.');
-shadedErrorBar(fanoData.gateVoltageList(1:end-0),abs(fanoFactorNegative)*0.5+0.5*fanoFactorPositive,0.5*sqrt(fanoFactorNegativeErr.^2+fanoFactorPositiveErr.^2),{'-or','markerfacecolor',[1,0,0]},1);
-%errorbar(fanoData.gateVoltageList(1:end-0),abs(fanoFactorPositive),fanoFactorPositiveErr);
+%figure(6);
+%clf;
+subplot(2,2,3)
+plot(fanoData.gateVoltageList(1:end-0),abs(fanoFactorNegative),fanoData.gateVoltageList(1:end-0),fanoFactorPositive,'.-');
 xlabel('V_g (V)');
 ylabel('Fano Factor');
 title(sprintf('Fano factor graphene at %g K, linear fit to %g < ev/kT < %g',fanoData.tempList(tempIndex),fanoFitStart,fanoFitEnd));
 grid on;
 legend('negative bias', 'positive bias');
-xx99=-10:0.1:10;
-plot(xx99,xx99*0+1/3,'--','LineWidth',2,'Color','k')
-xlim([-.6 -.2])
