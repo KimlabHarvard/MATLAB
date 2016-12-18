@@ -1,17 +1,17 @@
-Tmin=100;
-Tmax=110;
+Tmin=3;
+Tmax=65;
 Tstep=1;
 Rmin=800;
-Rstep=100;
+Rstep=200;
 Rmax=5000;
 
 numResPts=1000; %1k points or so is good
 
-lowerExtrapolationFactor=.8;
+lowerExtrapolationFactor=.5;
 upperExtrapolationFactor=.8;
 
 lowerExtrapolationFactorForFit=.2;
-upperExtrapolationFactorForFit=.5;
+upperExtrapolationFactorForFit=.45;
 
 trimmedResistance=calData.resistance(tempFitIndices,:); %the needed data
 
@@ -40,7 +40,7 @@ Z2=fittedJohnsonNoise(:);
 zi2=griddata(X2,Y2,Z2,xi2,yi2,'cubic');
 surf(xi2,yi2,zi2)
 xlabel('T(K)')
-ylabel('R(Ohms)')
+ylabel('R(\Omega)')
 zlabel('John Son Noise Power (W)')
 title('Calibration with some fitting and extrapolation')
 
@@ -51,7 +51,7 @@ title('Calibration with some fitting and extrapolation')
 % legendList=cell(n,1);
 % for(p=n:-1:1)
 %     plot(xi2(p,:),zi2(p,:),'o-','MarkerSize',4);
-%     legendList(n-p+1)={sprintf('%g Ohms',yi2(p,1))};
+%     legendList(n-p+1)={sprintf('%g \Omega',yi2(p,1))};
 % end
 % legend(legendList);
 % xlabel('T(K)');
@@ -116,7 +116,7 @@ end
 lennn=length(R_List)
 legendList=cell(lennn,1);
 for(p=lennn:-1:1)
-     legendList(lennn-p+1)={sprintf('%g Ohms',R_List(p))};
+     legendList(lennn-p+1)={sprintf('%g \Omega',R_List(p))};
 end
 
 clear myNoiseTemp myGain myRes
@@ -126,7 +126,20 @@ clf; hold on; grid on;
 for(p=length(resistanceGridList):-1:1)
     xfit=T_List_array{p};
     yfit=P_List_array{p};
-    plot(xfit,yfit,'o-','MarkerSize',3)
+    h=plot(xfit,1e9*yfit,'-','Color','k');
+    try
+        h.Color(4) = 0.5;
+        set(get(get(h,'Annotation'),'LegendInformation'),'IconDisplayStyle','off');
+    catch
+    end
+end
+for(p=length(resistanceGridList):-4:1)
+    xfit=T_List_array{p};
+    yfit=P_List_array{p};
+    h=plot(xfit,1e9*yfit,'-',...
+            'LineWidth',2,...
+            'MarkerSize',15,...
+            'DisplayName',sprintf('%g \Omega',resistanceGridList(p)));
 end
 for(p=length(R_List):-1:1)
     xfit=T_List_array{p};
@@ -135,7 +148,7 @@ for(p=length(R_List):-1:1)
     yfit(isnan(yfit))=[];
     try %in case it tries to fit to one point
         fitObject=fit(xfit',yfit','poly1');
-        plot(fitObject);
+        %plot(fitObject);
         myNoiseTemp(p)=fitObject.p2./fitObject.p1;
         myGain(p)=fitObject.p1;
         %myRes(p)=yi2(p,1);
@@ -148,9 +161,10 @@ for(p=length(R_List):-1:1)
     %plot(fitObject);
     p
 end
-legend(legendList);
+%legend(legendList);
+l = legend('show','Location','best')
 xlabel('T(K)');
-ylabel('Johnson Noise Power (W)');
+ylabel('Johnson Noise Power (nW)');
 title('Constant R fits to Johnson Noise')
 
 
@@ -164,7 +178,7 @@ yyaxis right;
 plot(myRes,myNoiseTemp);
 ylabel('T noise(K)');
 grid on;
-xlabel('R(Ohms)')
+xlabel('R(\Omega)')
 title('Gain and Noise T')
 
 

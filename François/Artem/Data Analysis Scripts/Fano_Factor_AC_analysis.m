@@ -14,7 +14,7 @@ noisePower(:,3:2:biasVoltageLength*2+2)=squeeze(data.noisePowerHigh(i,:,:));
 
 biasVoltage2=squeeze(data.midBiasVoltage(i,1,:));
 noisePower2=squeeze(data.noiseDerivative(i,:,:));
-
+ 
 figure(1);
 hold on; grid off; %grid on;
 plot(biasVoltage(13:end-1),noisePower(1,13:end-1)','.-','Color',[.75 .75 .75])
