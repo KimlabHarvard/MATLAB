@@ -15,7 +15,7 @@ function Francois_T_Vg___R_VNA(UniqueName, start_dir, tempWaitTime, temperatureW
     FileName = strcat('JNCal_measure_gain_', datestr(StartTime, 'yyyy-mm-dd_HH-MM-SS'),'_',UniqueName,'.mat');
     
     VNA = deviceDrivers.AgilentE8363C();
-    VNA.connect('140.247.189.8');
+    VNA.connect('140.247.189.204');
     VNA.trigger_source='manual';
     
     tempController=FrancoisLakeShore335();
