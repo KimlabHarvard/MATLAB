@@ -15,6 +15,16 @@ classdef (Sealed) Keysight34401A < deviceDrivers.lib.GPIB
             val=str2double(obj.query('READ?'));
         end
         
+        %use this as a trigger
+        function initiate(obj)
+            obj.write('INITiate');
+        end
+        
+        %fetch the last measurement from the buffer after triggering
+        function val = fetch(obj)
+            val=str2double(obj.query('FETCh?'));
+        end
+        
         %varargin can be range or range, resolution
         %eg set_mode('volt', 1, 1E-4)
         function set_mode(obj,mode, varargin)
