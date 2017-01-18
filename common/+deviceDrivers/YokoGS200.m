@@ -80,6 +80,11 @@ classdef (Sealed) YokoGS200 < deviceDrivers.lib.GPIBorEthernet
                 while etime(clock,t) < time_per_step
                 end
             end
+            
+            %Artem Talanov 1/18/2017: added this here because in some cases,
+            %if steps were too small, it would not ramp at all
+            %this corrects it; if no steps it just sets the voltage
+            obj.value=Vset;
         end
 
         function obj = set.range(obj, range)
