@@ -2,31 +2,30 @@
     function FrancoisSetTemperature(lakeshore, finalTemp, temperatureTolerance)
         keeplooping=true;%can pause program and set this to true if needed
         startingTemp=lakeshore.temperatureA;
-        tempController.setPoint1=finalTemp; 
+        lakeshore.setPoint1=finalTemp; 
         count=0;
         if(finalTemp>startingTemp)%we are warming
             fprintf('warming to %f K\n', finalTemp)
-            while(keeplooping && tempController.temperatureA<finalTemp-temperatureTolerance)
-                if(mod(count,10)==0)
-                    fprintf('current temp is %f K\n', tempController.temperatureA);
+            while(keeplooping && lakeshore.temperatureA<finalTemp-temperatureTolerance)
+            %while(true)
+                if(mod(count,1)==10)
+                    fprintf('current temp is %f K\n', lakeshore.temperatureA);
                 end
                 count=count+1;
-                pause(1);
+                pause(.3);
             end
             fprintf('temp of %f K reached\n', finalTemp)
         else%we are cooling
             fprintf('cooling to %f K\n', finalTemp)
-            while(keeplooping && tempController.temperatureA>finalTemp+temperatureTolerance)
-                if(mod(count,10)==0)
-                    fprintf('current temp is %f K\n', tempController.temperatureA);
+            %while(true)
+            while(keeplooping && lakeshore.temperatureA>finalTemp+temperatureTolerance)
+                if(mod(count,1)==10)
+                    fprintf('current temp is %f K\n', lakeshore.temperatureA);
                 end
                 count=count+1;
-                pause(1);
+                pause(.3);
             end
             fprintf('temp of %f K reached\n', finalTemp)
         end
-        %if(i>1)
-            pause(tempWaitTime);
-        %end
     end
 

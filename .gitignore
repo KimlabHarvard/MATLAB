@@ -26,3 +26,5 @@ DC_noise_vs_biasV_wrapper.m
 .project
 .pydevproject
 *.prefs
+Experiments/
+Experiments/*
